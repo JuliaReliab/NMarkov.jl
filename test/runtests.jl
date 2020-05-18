@@ -73,3 +73,20 @@ end
         end
     end
 end
+
+@testset "GTH" begin
+    Q = [
+        -3.0 2.0 0.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    @time x = gth(Q)
+    Q1 = copy(Q)
+    Q1[:,1] .= 1
+    b = zeros(size(Q1)[1])
+    b[1] = 1.0
+    @time x0 = Q1' \ b
+    @test x0 ≈ x
+    @time x = gth(Q, [2,3,1]) # permutation
+    @test x0 ≈ x
+end

@@ -6,7 +6,7 @@ module NMarkov
 # include("../SparseMatrix/_SparseMatrix.jl")
 # include("Common.jl")
 include("_poisson.jl")
-# include("GTH.jl")
+include("_gth.jl")
 # include("Stationary.jl")
 # include("QuasiStationary.jl")
 # include("Sensitivity.jl")
