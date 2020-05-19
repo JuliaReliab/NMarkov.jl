@@ -176,26 +176,6 @@ function mexp(Q::AbstractMatrix{Tv}, t::Tv, x::Array{Tv,N};
     return y
 end
 
-# function _mexp(Q::AbstractMatrix{Tv}, t::Tv, x::Array{Tv,N}, ::Trans, ufact::Tv, eps::Tv, rmax) where {Tv,N}
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*t, eps)
-#     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
-#     weight, poi = poipmf(qv*t, right, left = 0)
-#     y = zero(x)
-#     _unifstep!(P, poi, weight, x, y)
-#     return y
-# end
-
-# function _mexp(Q::AbstractMatrix{Tv}, t::Tv, x::Array{Tv,N}, ::NoTrans, ufact::Tv, eps::Tv, rmax) where {Tv,N}
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*t, eps)
-#     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
-#     weight, poi = poipmf(qv*t, right, left = 0)
-#     y = zero(x)
-#     unifbackward!(P, poi, weight, x, y)
-#     return y
-# end
-
 """
 mexpc(Q, t, x; transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
 
@@ -229,28 +209,6 @@ function mexpc(Q::AbstractMatrix{Tv}, t::Tv, x::Array{Tv,N};
     _cunifstep!(transpose, P, poi, cpoi, weight, qv*weight, x, y, cy)
     return y, cy
 end
-
-# function _mexpc(Q::AbstractMatrix{Tv}, t::Tv, x::Array{Tv,N}, ::Trans, ufact::Tv, eps::Tv, rmax) where {Tv,N}
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*t, eps) + 1
-#     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
-#     weight, poi, cpoi = cpoipmf(qv*t, right, left = 0)
-#     y = zero(x)
-#     cy = zero(x)
-#     cunifforward!(P, poi, cpoi, weight, qv*weight, x, y, cy)
-#     return y, cy
-# end
-
-# function _mexpc(Q::AbstractMatrix{Tv}, t::Tv, x::Array{Tv,N}, ::NoTrans, ufact::Tv, eps::Tv, rmax) where {Tv,N}
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*t, eps) + 1
-#     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
-#     weight, poi, cpoi = cpoipmf(qv*t, right, left = 0)
-#     y = zero(x)
-#     cy = zero(x)
-#     cunifbackward!(P, poi, cpoi, weight, qv*weight, x, y, cy)
-#     return y, cy
-# end
 
 """
 mexp(Q, ts, x, transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
