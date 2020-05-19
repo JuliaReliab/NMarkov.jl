@@ -77,10 +77,24 @@ end
 
 function makeQ()
     Q = [
-        -3.0 3.0 0.0;
+        -3.0 2.0 1.0;
         1.0 -5.0 4.0;
         1.0 1.0 -2.0
     ]
+end
+
+function makeQ2()
+    Q = [
+        -3.0 2.0 1.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    Qdash = [
+        -1.0 1.0 0.0;
+        0.0 0.0 0.0;
+        0.0 0.0 0.0
+    ]
+    return Q, Qdash
 end
 
 @testset "GTH" begin
@@ -105,6 +119,8 @@ end
     b[1] = 1.0
     @time x0 = Q1' \ b
     @test x0 ≈ x
+    @time x, = stgs(SparseCSC(Q))
+    @test x0 ≈ x
 end
 
 @testset "Power" begin
@@ -116,4 +132,36 @@ end
     b[1] = 1.0
     @time x0 = Q1' \ b
     @test x0 ≈ x
+    @time x, = stpower(unif(Q)[1])
+    @test x0 ≈ x
+end
+
+@testset "STSENGS" begin
+    Q, Qdash = makeQ2()
+    pis = gth(Q)
+    b = Qdash' * pis
+    y0 = stsengs(SparseCSC(Q), pis, b)
+    
+    Q1 = copy(Q)
+    Q1[:,1] .= 1
+    b[1] = 0.0
+    x0 = Q1' \ (-b)
+
+    @test x0 ≈ y0[1]
+end
+
+@testset "STSENPower" begin
+    Q, Qdash = makeQ2()
+    P, qv = unif(SparseCSC(Q))
+    Pdash = Qdash / qv
+    pis = gth(Q)
+    y0 = stsenpower(P, pis, Pdash' * pis)
+    
+    Q1 = copy(Q)
+    Q1[:,1] .= 1
+    b = Qdash' * pis
+    b[1] = 0.0
+    x0 = Q1' \ (-b)
+
+    @test x0 ≈ y0[1]
 end

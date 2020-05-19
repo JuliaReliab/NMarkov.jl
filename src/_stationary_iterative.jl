@@ -8,7 +8,7 @@ export stguess, stgs, stpower
 """
 stguess(Q::MatT, ::Type{Tv} = Float64)::Vector{Tv}
 
-Get a vector which is guessed as the sensitivity function for the stationary vector of CTMC.
+Get a vector which is guessed as the stationary vector of CTMC.
 This is used as the initial vector for the iterative methods.
 """
 
@@ -90,7 +90,9 @@ A tuple of
 """
 
 function stpower(P::AbstractMatrix{Tv}; x0::Vector{Tv}=stguess(P,Tv),
-    maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
+    maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv}
+    m, n = size(P)
+    @assert m == n
     Pdash = P'
     x = copy(x0)
     iter = 0
