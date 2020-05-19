@@ -285,3 +285,98 @@ end
     @test res0[4:6,1:2] ≈ res3[2]
     @test res0[4:6,1:2] ≈ res4[2]
 end
+
+@testset "mexp2" begin
+    Q = [
+        -3.0 2.0 0.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    x0 = [
+        0.5 0.0;
+        0.5 0.5;
+        0.0 0.5
+    ]
+    ts = LinRange(0.0, 10.0, 10)
+    res0 = [exp(Q*t) * x0 for t = ts]
+    res1 = mexp(Q, ts, x0)
+    res2 = mexp(SparseCSR(Q), ts, x0)
+    res3 = mexp(SparseCSC(Q), ts, x0)
+    res4 = mexp(SparseCOO(Q), ts, x0)
+    @test res0 ≈ res1
+    @test res0 ≈ res2
+    @test res0 ≈ res3
+    @test res0 ≈ res4
+    res0 = [exp(Q'*t) * x0 for t = ts]
+    res1 = mexp(Q, ts, x0, transpose=Trans())
+    res2 = mexp(SparseCSR(Q), ts, x0, transpose=Trans())
+    res3 = mexp(SparseCSC(Q), ts, x0, transpose=Trans())
+    res4 = mexp(SparseCOO(Q), ts, x0, transpose=Trans())
+    @test res0 ≈ res1
+    @test res0 ≈ res2
+    @test res0 ≈ res3
+    @test res0 ≈ res4
+end
+
+@testset "mexpc2" begin
+    Q = [
+        -3.0 2.0 0.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    I = [
+        1.0 0.0 0.0;
+        0.0 1.0 0.0;
+        0.0 0.0 1.0
+    ]
+    x0 = [
+        0.5 0.0;
+        0.5 0.5;
+        0.0 0.5
+    ]
+    ts = LinRange(0.0, 10.0, 10)
+
+    Qdash = [
+        Q zeros(3,3);
+        I zeros(3,3)
+    ]
+    x0dash = [
+        x0;
+        zeros(3,2)
+    ]
+    res0 = ([(exp(Qdash*t) * x0dash)[1:3,1:2] for t = ts], [(exp(Qdash*t) * x0dash)[4:6,1:2] for t = ts])
+    res1 = mexpc(Q, ts, x0)
+    res2 = mexpc(SparseCSR(Q), ts, x0)
+    res3 = mexpc(SparseCSC(Q), ts, x0)
+    res4 = mexpc(SparseCOO(Q), ts, x0)
+    @test res0[1] ≈ res1[1]
+    @test res0[1] ≈ res2[1]
+    @test res0[1] ≈ res3[1]
+    @test res0[1] ≈ res4[1]
+    @test res0[2] ≈ res1[2]
+    @test res0[2] ≈ res2[2]
+    @test res0[2] ≈ res3[2]
+    @test res0[2] ≈ res4[2]
+
+    Qdash = [
+        Q' zeros(3,3);
+        I zeros(3,3)
+    ]
+    x0dash = [
+        x0;
+        zeros(3,2)
+    ]
+    res0 = ([(exp(Qdash*t) * x0dash)[1:3,1:2] for t = ts], [(exp(Qdash*t) * x0dash)[4:6,1:2] for t = ts])
+    res1 = mexpc(Q, ts, x0, transpose=Trans())
+    res2 = mexpc(SparseCSR(Q), ts, x0, transpose=Trans())
+    res3 = mexpc(SparseCSC(Q), ts, x0, transpose=Trans())
+    res4 = mexpc(SparseCOO(Q), ts, x0, transpose=Trans())
+    @test res0[1] ≈ res1[1]
+    @test res0[1] ≈ res2[1]
+    @test res0[1] ≈ res3[1]
+    @test res0[1] ≈ res4[1]
+    @test res0[2] ≈ res1[2]
+    @test res0[2] ≈ res2[2]
+    @test res0[2] ≈ res3[2]
+    @test res0[2] ≈ res4[2]
+end
