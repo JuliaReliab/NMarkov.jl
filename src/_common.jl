@@ -28,6 +28,17 @@ macro dscal(a, x)
     esc(expr)
 end
 
+macro dot(x, y)
+    expr = quote
+        s = 0
+        for i in 1:length($x)
+            s += $x[i] * $y[i]
+        end
+        s
+    end
+    esc(expr)
+end
+
 # function spsum(A::SparseMatrixCSC{T}, axis::Int)::Vector{T} where {T <: AbstractFloat}
 #     if axis == 0
 #         return _spcolsum(A)

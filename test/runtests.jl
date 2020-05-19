@@ -97,6 +97,16 @@ function makeQ2()
     return Q, Qdash
 end
 
+function makeQ3()
+    Q = [
+        -3.0 2.0 0.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    xi = [1.0, 0.0, 0.0]
+    return Q, xi
+end
+
 @testset "GTH" begin
     Q = makeQ()
     @time x = gth(Q)
@@ -164,4 +174,16 @@ end
     x0 = Q1' \ (-b)
 
     @test x0 ≈ y0[1]
+end
+
+@testset "QSTGS" begin
+    Q, xi = makeQ3()
+    @time x = qstgs(SparseCSC(Q), xi)
+
+    P, qv = unif(Q)
+    pxi = xi / qv
+    @time x2 = qstpower(P, pxi)
+
+    @test x[1] ≈ x2[1]
+    @test x[2] ≈ x2[2]*qv
 end
