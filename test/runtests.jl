@@ -75,40 +75,12 @@ end
     end
 end
 
-function makeQ()
-    Q = [
-        -3.0 2.0 1.0;
-        1.0 -5.0 4.0;
-        1.0 1.0 -2.0
-    ]
-end
-
-function makeQ2()
-    Q = [
-        -3.0 2.0 1.0;
-        1.0 -5.0 4.0;
-        1.0 1.0 -2.0
-    ]
-    Qdash = [
-        -1.0 1.0 0.0;
-        0.0 0.0 0.0;
-        0.0 0.0 0.0
-    ]
-    return Q, Qdash
-end
-
-function makeQ3()
-    Q = [
-        -3.0 2.0 0.0;
-        1.0 -5.0 4.0;
-        1.0 1.0 -2.0
-    ]
-    xi = [1.0, 0.0, 0.0]
-    return Q, xi
-end
-
 @testset "GTH" begin
-    Q = makeQ()
+    Q = [
+        -3.0 2.0 1.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
     @time x = gth(Q)
     Q1 = copy(Q)
     Q1[:,1] .= 1
@@ -121,7 +93,11 @@ end
 end
 
 @testset "GS" begin
-    Q = makeQ()
+    Q = [
+        -3.0 2.0 1.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
     @time x, = stgs(SparseCSC(Q), x0 = [0.3, 0.4, 0.3])
     Q1 = copy(Q)
     Q1[:,1] .= 1
@@ -134,7 +110,11 @@ end
 end
 
 @testset "Power" begin
-    Q = makeQ()
+    Q = [
+        -3.0 2.0 1.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
     @time x, = stpower(unif(Q)[1], x0 = [0.3, 0.4, 0.3])
     Q1 = copy(Q)
     Q1[:,1] .= 1
@@ -147,7 +127,16 @@ end
 end
 
 @testset "STSENGS" begin
-    Q, Qdash = makeQ2()
+    Q = [
+        -3.0 2.0 1.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    Qdash = [
+        -1.0 1.0 0.0;
+        0.0 0.0 0.0;
+        0.0 0.0 0.0
+    ]
     pis = gth(Q)
     b = Qdash' * pis
     y0 = stsengs(SparseCSC(Q), pis, b)
@@ -161,7 +150,16 @@ end
 end
 
 @testset "STSENPower" begin
-    Q, Qdash = makeQ2()
+    Q = [
+        -3.0 2.0 1.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    Qdash = [
+        -1.0 1.0 0.0;
+        0.0 0.0 0.0;
+        0.0 0.0 0.0
+    ]
     P, qv = unif(SparseCSC(Q))
     Pdash = Qdash / qv
     pis = gth(Q)
@@ -177,7 +175,12 @@ end
 end
 
 @testset "QSTGS" begin
-    Q, xi = makeQ3()
+    Q = [
+        -3.0 2.0 0.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    xi = [1.0, 0.0, 0.0]
     @time x = qstgs(SparseCSC(Q), xi)
 
     P, qv = unif(Q)
@@ -186,4 +189,99 @@ end
 
     @test x[1] ≈ x2[1]
     @test x[2] ≈ x2[2]*qv
+end
+
+@testset "mexp1" begin
+    Q = [
+        -3.0 2.0 0.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    x0 = [
+        0.5 0.0;
+        0.5 0.5;
+        0.0 0.5
+    ]
+    t = 10.0
+    res0 = exp(Q*t) * x0
+    res1 = mexp(Q, t, x0)
+    res2 = mexp(SparseCSR(Q), t, x0)
+    res3 = mexp(SparseCSC(Q), t, x0)
+    res4 = mexp(SparseCOO(Q), t, x0)
+    @test res0 ≈ res1
+    @test res0 ≈ res2
+    @test res0 ≈ res3
+    @test res0 ≈ res4
+    res0 = exp(Q'*t) * x0
+    res1 = mexp(Q, t, x0, transpose=Trans())
+    res2 = mexp(SparseCSR(Q), t, x0, transpose=Trans())
+    res3 = mexp(SparseCSC(Q), t, x0, transpose=Trans())
+    res4 = mexp(SparseCOO(Q), t, x0, transpose=Trans())
+    @test res0 ≈ res1
+    @test res0 ≈ res2
+    @test res0 ≈ res3
+    @test res0 ≈ res4
+end
+
+@testset "mexpc1" begin
+    Q = [
+        -3.0 2.0 0.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    I = [
+        1.0 0.0 0.0;
+        0.0 1.0 0.0;
+        0.0 0.0 1.0
+    ]
+    x0 = [
+        0.5 0.0;
+        0.5 0.5;
+        0.0 0.5
+    ]
+    t = 10.0
+
+    Qdash = [
+        Q zeros(3,3);
+        I zeros(3,3)
+    ]
+    x0dash = [
+        x0;
+        zeros(3,2)
+    ]
+    res0 = exp(Qdash*t) * x0dash
+    res1 = mexpc(Q, t, x0)
+    res2 = mexpc(SparseCSR(Q), t, x0)
+    res3 = mexpc(SparseCSC(Q), t, x0)
+    res4 = mexpc(SparseCOO(Q), t, x0)
+    @test res0[1:3,1:2] ≈ res1[1]
+    @test res0[1:3,1:2] ≈ res2[1]
+    @test res0[1:3,1:2] ≈ res3[1]
+    @test res0[1:3,1:2] ≈ res4[1]
+    @test res0[4:6,1:2] ≈ res1[2]
+    @test res0[4:6,1:2] ≈ res2[2]
+    @test res0[4:6,1:2] ≈ res3[2]
+    @test res0[4:6,1:2] ≈ res4[2]
+
+    Qdash = [
+        Q' zeros(3,3);
+        I zeros(3,3)
+    ]
+    x0dash = [
+        x0;
+        zeros(3,2)
+    ]
+    res0 = exp(Qdash*t) * x0dash
+    res1 = mexpc(Q, t, x0, transpose=Trans())
+    res2 = mexpc(SparseCSR(Q), t, x0, transpose=Trans())
+    res3 = mexpc(SparseCSC(Q), t, x0, transpose=Trans())
+    res4 = mexpc(SparseCOO(Q), t, x0, transpose=Trans())
+    @test res0[1:3,1:2] ≈ res1[1]
+    @test res0[1:3,1:2] ≈ res2[1]
+    @test res0[1:3,1:2] ≈ res3[1]
+    @test res0[1:3,1:2] ≈ res4[1]
+    @test res0[4:6,1:2] ≈ res1[2]
+    @test res0[4:6,1:2] ≈ res2[2]
+    @test res0[4:6,1:2] ≈ res3[2]
+    @test res0[4:6,1:2] ≈ res4[2]
 end

@@ -16,10 +16,6 @@ include("_sensitivity_iterative.jl")
 include("_quasistationary_iterative.jl")
 
 include("_poisson.jl")
-
-# include("Stationary.jl")
-# include("QuasiStationary.jl")
-# include("Sensitivity.jl")
-# include("Transient.jl")
+include("_transient.jl")
 
 end # module
