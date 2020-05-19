@@ -2,6 +2,7 @@ using NMarkov
 using Test
 using Printf
 using Distributions
+using SparseMatrix
 
 @testset "PoissonRight" begin
     for q in [1.0e-6, 1.0e-7, 1.0e-8, 1.0e-9, 1.0e-10, 1.0e-11, 1.0e-12]
@@ -74,12 +75,16 @@ end
     end
 end
 
-@testset "GTH" begin
+function makeQ()
     Q = [
-        -3.0 2.0 0.0;
+        -3.0 3.0 0.0;
         1.0 -5.0 4.0;
         1.0 1.0 -2.0
     ]
+end
+
+@testset "GTH" begin
+    Q = makeQ()
     @time x = gth(Q)
     Q1 = copy(Q)
     Q1[:,1] .= 1
@@ -88,5 +93,27 @@ end
     @time x0 = Q1' \ b
     @test x0 ≈ x
     @time x = gth(Q, [2,3,1]) # permutation
+    @test x0 ≈ x
+end
+
+@testset "GS" begin
+    Q = makeQ()
+    @time x, = stgs(SparseCSC(Q), x0 = [0.3, 0.4, 0.3])
+    Q1 = copy(Q)
+    Q1[:,1] .= 1
+    b = zeros(size(Q1)[1])
+    b[1] = 1.0
+    @time x0 = Q1' \ b
+    @test x0 ≈ x
+end
+
+@testset "Power" begin
+    Q = makeQ()
+    @time x, = stpower(unif(Q)[1], x0 = [0.3, 0.4, 0.3])
+    Q1 = copy(Q)
+    Q1[:,1] .= 1
+    b = zeros(size(Q1)[1])
+    b[1] = 1.0
+    @time x0 = Q1' \ b
     @test x0 ≈ x
 end
