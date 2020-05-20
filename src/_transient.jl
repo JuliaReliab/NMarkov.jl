@@ -146,7 +146,7 @@ function _cunifstep!(::NoTrans, P::AbstractMatrix{Tv}, poi::Vector{Tv}, cpoi::Ve
 end
 
 """
-mexp(Q, t, x, transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
+mexp(Q, x, t; transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
 
 Compute the probability vector for CTMC.
 
@@ -154,8 +154,8 @@ exp(tr(Q)*t) * x
 
 Parameters:
 - Q: CTMC Kernel
-- t: time
 - x: Array
+- t: time
 - transpose: forward or backward
 - ufact: uniformization factor
 - eps: tolerance error for Poisson p.m.f.
@@ -165,7 +165,7 @@ Return value:
 - probability vector
 """
 
-function mexp(Q::AbstractMatrix{Tv}, t::Tv, x::Array{Tv,N};
+function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, t::Tv;
     transpose::AbstractTranspose = NoTrans(), ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
     P, qv = unif(Q, ufact)
     right = rightbound(qv*t, eps)
@@ -177,7 +177,7 @@ function mexp(Q::AbstractMatrix{Tv}, t::Tv, x::Array{Tv,N};
 end
 
 """
-mexpc(Q, t, x; transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
+mexpc(Q, x, t; transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
 
 Compute the probability vector for CTMC and the cumulative value.
 
@@ -186,8 +186,8 @@ int_0^t exp(tr(Q)*u) * x du
 
 Parameters:
 - Q: CTMC Kernel
-- t: time
 - x: Array
+- t: time
 - transpose: forward or backward
 - ufact: uniformization factor
 - eps: tolerance error for Poisson p.m.f.
@@ -198,7 +198,7 @@ Return value (tuple)
 - cumulative value
 """
 
-function mexpc(Q::AbstractMatrix{Tv}, t::Tv, x::Array{Tv,N};
+function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, t::Tv;
     transpose::AbstractTranspose = NoTrans(), ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
     P, qv = unif(Q, ufact)
     right = rightbound(qv*t, eps) + 1
@@ -211,7 +211,7 @@ function mexpc(Q::AbstractMatrix{Tv}, t::Tv, x::Array{Tv,N};
 end
 
 """
-mexp(Q, ts, x, transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
+mexp(Q, x, ts; transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
 
 Compute the probability vector for CTMC for time series
 
@@ -219,8 +219,8 @@ exp(tr(Q)*t) * x for t = ts
 
 Parameters:
 - Q: CTMC Kernel
-- ts: time series
 - x: Array
+- ts: time series
 - transpose: forward or backward
 - ufact: uniformization factor
 - eps: tolerance error for Poisson p.m.f.
@@ -230,7 +230,7 @@ Return value:
 - probability vector
 """
 
-function mexp(Q::AbstractMatrix{Tv}, ts::AbstractVector{Tv}, x::Array{Tv,N};
+function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, ts::AbstractVector{Tv};
     transpose::AbstractTranspose = NoTrans(), ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
     dt = diff(ts)
     @assert all(dt .>= zero(Tv))
@@ -254,7 +254,7 @@ function mexp(Q::AbstractMatrix{Tv}, ts::AbstractVector{Tv}, x::Array{Tv,N};
 end
 
 """
-mexpc(Q, ts, x; transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
+mexpc(Q, x, ts; transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
 
 Compute the probability vector for CTMC and the cumulative value for time series.
 
@@ -263,8 +263,8 @@ int_0^t exp(tr(Q)*u) * x du for t = ts
 
 Parameters:
 - Q: CTMC Kernel
-- t: time
 - x: Array
+- ts: time series
 - transpose: forward or backward
 - ufact: uniformization factor
 - eps: tolerance error for Poisson p.m.f.
@@ -275,7 +275,7 @@ Return value (tuple)
 - cumulative value
 """
 
-function mexpc(Q::AbstractMatrix{Tv}, ts::AbstractVector{Tv}, x::Array{Tv,N};
+function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, ts::AbstractVector{Tv};
     transpose::AbstractTranspose = NoTrans(), ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
     dt = diff(ts)
     @assert all(dt .>= zero(Tv))
