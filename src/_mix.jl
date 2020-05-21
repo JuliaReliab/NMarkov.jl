@@ -39,10 +39,12 @@ function mexp(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
     right = rightbound(qv*maxt, eps)
     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
     prob = Vector{Tv}(undef, right+1)
-    y0, y1, result = x, similar(x), zero(x)
-    for i in 1:length(dt)
+    y0, y1 = copy(x), similar(x)
+    result = zero(x)
+    for i in eachindex(dt)
         right = rightbound(qv*dt[i], eps)
         weight = poipmf!(qv*dt[i], prob; left=0, right=right)
+        y1 .= Tv(0)
         _unifstep!(transpose, P, prob, weight, y0, y1)
         @daxpy(de.w[i], y1, result)
         y0 .= y1
@@ -97,13 +99,19 @@ function mexpc(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
     prob = Vector{Tv}(undef, right+1)
     cprob = Vector{Tv}(undef, right+1)
-    y0, y1, cy1, result, cresult = x, similar(x), zero(x), zero(x), zero(x)
-    for i in 1:length(dt)
+    y0, y1 = copy(x), similar(x)
+    cy = zero(x)
+    tmp = similar(x)
+    result, cresult = zero(x), zero(x)
+    for i in eachindex(dt)
         right = rightbound(qv*dt[i], eps) + 1
         weight = cpoipmf!(qv*dt[i], prob, cprob; left=0, right=right)
-        _cunifstep!(transpose, P, prob, cprob, weight, qv*weight, y0, y1, cy1)
+        tmp .= Tv(0)
+        y1 .= Tv(0)
+        _cunifstep!(transpose, P, prob, cprob, weight, qv*weight, y0, y1, tmp)
+        cy .+= tmp
         @daxpy(de.w[i], y1, result)
-        @daxpy(de.w[i], cy1, cresult)
+        @daxpy(de.w[i], cy, cresult)
         y0 .= y1
     end
     @dscal(de.h, result)

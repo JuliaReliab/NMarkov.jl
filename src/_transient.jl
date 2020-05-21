@@ -32,20 +32,18 @@ Parameters:
 - P: The uniformed matrix
 - poi: Poisson p.m.f.
 - weight: The normalizing constant for Poisson p.m.f.
-- x: Array (in)
-- y: Array (out)
+- x: Array (inout). x may be changed after executing
+- y: Array (out). y should be zero before executing
 Return value: nothing
 """
 
 function unifforward!(P::AbstractMatrix{Tv}, poi::Vector{Tv}, weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N})::Nothing where {Tv,N}
-    y .= Tv(0)
-    xi = copy(x)
     Pdash = P'
-    @daxpy(poi[1], xi, y)
+    @daxpy(poi[1], x, y)
     for i = 2:length(poi)
-        xi .= Pdash * xi
-        @daxpy(poi[i], xi, y)
+        x .= Pdash * x
+        @daxpy(poi[i], x, y)
     end
     @dscal(1/weight, y)
     nothing
@@ -53,12 +51,10 @@ end
 
 function unifbackward!(P::AbstractMatrix{Tv}, poi::Vector{Tv}, weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N})::Nothing where {Tv,N}
-    y .= Tv(0)
-    xi = copy(x)
-    @daxpy(poi[1], xi, y)
+    @daxpy(poi[1], x, y)
     for i = 2:length(poi)
-        xi .= P * xi
-        @daxpy(poi[i], xi, y)
+        x .= P * x
+        @daxpy(poi[i], x, y)
     end
     @dscal(1/weight, y)
     nothing
@@ -91,47 +87,39 @@ Parameters:
 - cpoi: Poisson c.c.d.f.
 - weight: The normalizing constant for Poisson p.m.f.
 - qv_weight: The normalizing constant for Poisson c.c.d.f.
-- x: Array (in)
-- y: Array (out)
-- cy: Array (inout)
+- x: Array (inout). x may be changed after executing
+- y: Array (out). y should be zero before executing
+- cy: Array (inout). cy should be zero before executing
 Return value: nothing
 """
 
 function cunifforward!(P::AbstractMatrix{Tv}, poi::Vector{Tv}, cpoi::Vector{Tv}, weight::Tv, qv_weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N}, cy::Array{Tv,N})::Nothing where {Tv,N}
-    y .= Tv(0)
-    xi = copy(x)
-    cxi = zero(x)
     Pdash = P'
-    @daxpy(poi[1], xi, y)
-    @daxpy(cpoi[1], xi, cxi)
+    @daxpy(poi[1], x, y)
+    @daxpy(cpoi[1], x, cy)
     for i = 2:length(poi)
-        xi .= Pdash * xi
-        @daxpy(poi[i], xi, y)
-        @daxpy(cpoi[i], xi, cxi)
+        x .= Pdash * x
+        @daxpy(poi[i], x, y)
+        @daxpy(cpoi[i], x, cy)
     end
     @dscal(1/weight, y)
-    @dscal(1/qv_weight, cxi)
-    cy .+= cxi
+    @dscal(1/qv_weight, cy)
     nothing
 end
 
 function cunifbackward!(P::AbstractMatrix{Tv}, poi::Vector{Tv}, cpoi::Vector{Tv}, weight::Tv, qv_weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N}, cy::Array{Tv,N})::Nothing where {Tv,N}
-    y .= Tv(0)
-    xi = copy(x)
-    cxi = zero(x)
     Pdash = P'
-    @daxpy(poi[1], xi, y)
-    @daxpy(cpoi[1], xi, cxi)
+    @daxpy(poi[1], x, y)
+    @daxpy(cpoi[1], x, cy)
     for i = 2:length(poi)
-        xi .= P * xi
-        @daxpy(poi[i], xi, y)
-        @daxpy(cpoi[i], xi, cxi)
+        x .= P * x
+        @daxpy(poi[i], x, y)
+        @daxpy(cpoi[i], x, cy)
     end
     @dscal(1/weight, y)
-    @dscal(1/qv_weight, cxi)
-    cy .+= cxi
+    @dscal(1/qv_weight, cy)
     nothing
 end
 
@@ -171,8 +159,8 @@ function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, t::Tv;
     right = rightbound(qv*t, eps)
     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
     weight, poi = poipmf(qv*t, right, left = 0)
-    y = similar(x)
-    _unifstep!(transpose, P, poi, weight, x, y)
+    y = zero(x)
+    _unifstep!(transpose, P, poi, weight, copy(x), y)
     return y
 end
 
@@ -204,9 +192,9 @@ function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, t::Tv;
     right = rightbound(qv*t, eps) + 1
     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
     weight, poi, cpoi = cpoipmf(qv*t, right, left = 0)
-    y = similar(x)
+    y = zero(x)
     cy = zero(x)
-    _cunifstep!(transpose, P, poi, cpoi, weight, qv*weight, x, y, cy)
+    _cunifstep!(transpose, P, poi, cpoi, weight, qv*weight, copy(x), y, cy)
     return y, cy
 end
 
@@ -241,14 +229,14 @@ function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, ts::AbstractVector{Tv};
     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
     prob = Vector{Tv}(undef, right+1)
     result = Vector{Array{Tv,N}}()
-    y0 = x
+    y0 = copy(x)
     for tau in dt
         right = rightbound(qv*tau, eps)
         weight = poipmf!(qv*tau, prob; left=0, right=right)
-        y1 = similar(y0)
+        y1 = zero(y0)
         _unifstep!(transpose, P, prob, weight, y0, y1)
         push!(result, y1)
-        y0 = y1
+        y0 .= y1
     end
     return result
 end
@@ -288,15 +276,19 @@ function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, ts::AbstractVector{Tv};
     cprob = Vector{Tv}(undef, right+1)
     result = Vector{Array{Tv,N}}()
     cresult = Vector{Array{Tv,N}}()
-    y0, cy0 = x, zero(x)
+    y0 = copy(x)
+    cy = zero(x)
+    tmp = similar(x)
     for tau in dt
         right = rightbound(qv*tau, eps) + 1
         weight = cpoipmf!(qv*tau, prob, cprob; left=0, right=right)
-        y1, cy1 = similar(y0), copy(cy0)
-        _cunifstep!(transpose, P, prob, cprob, weight, qv*weight, y0, y1, cy1)
+        y1 = zero(y0)
+        tmp .= Tv(0)
+        _cunifstep!(transpose, P, prob, cprob, weight, qv*weight, y0, y1, tmp)
+        cy .+= tmp
         push!(result, y1)
-        push!(cresult, cy1)
-        y0, cy0 = y1, cy1
+        push!(cresult, copy(cy))
+        y0 .= y1
     end
     return result, cresult
 end
