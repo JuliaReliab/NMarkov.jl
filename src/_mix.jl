@@ -45,7 +45,7 @@ function mexp(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
         right = rightbound(qv*dt[i], eps)
         weight = poipmf!(qv*dt[i], prob; left=0, right=right)
         y1 .= Tv(0)
-        _unifstep!(transpose, P, prob, weight, y0, y1)
+        unifstep!(transpose, P, prob, (0, right), weight, y0, y1)
         @daxpy(de.w[i], y1, result)
         y0 .= y1
     end
@@ -108,7 +108,7 @@ function mexpc(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
         weight = cpoipmf!(qv*dt[i], prob, cprob; left=0, right=right)
         tmp .= Tv(0)
         y1 .= Tv(0)
-        _cunifstep!(transpose, P, prob, cprob, weight, qv*weight, y0, y1, tmp)
+        cunifstep!(transpose, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
         cy .+= tmp
         @daxpy(de.w[i], y1, result)
         @daxpy(de.w[i], cy, cresult)

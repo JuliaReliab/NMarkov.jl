@@ -18,6 +18,7 @@ include("_sensitivity_iterative.jl")
 include("_quasistationary_iterative.jl")
 
 include("_poisson.jl")
+include("_forward_backward.jl")
 include("_transient.jl")
 
 include("_mix.jl")

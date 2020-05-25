@@ -40,7 +40,7 @@ function qstgs(Q::SparseCSC{Tv,Ti}, xi::Vector{Tv}; x0::Vector{Tv}=stguess(Q,Tv)
     while true
         prevx .= x
         for i in 1:steps
-            gam = @dot(x, xi)
+            gam = @ddot(x, xi)
             gsstep!(x, Q, b, sigma=-gam)
             x ./= sum(x)
         end
@@ -104,7 +104,7 @@ function qstpower(P::AbstractMatrix{Tv}, xi::Vector{Tv};
             break
         end
     end
-    nu = @dot(x, xi)
+    nu = @ddot(x, xi)
     return x, nu, conv, iter, rerror
 end
 
