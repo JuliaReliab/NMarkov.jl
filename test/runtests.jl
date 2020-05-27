@@ -204,19 +204,19 @@ end
     ]
     t = 10.0
     res0 = exp(Q*t) * x0
-    res1 = mexp(Q, t, x0)
-    res2 = mexp(SparseCSR(Q), t, x0)
-    res3 = mexp(SparseCSC(Q), t, x0)
-    res4 = mexp(SparseCOO(Q), t, x0)
+    res1 = mexp(Q, x0, t)
+    res2 = mexp(SparseCSR(Q), x0, t)
+    res3 = mexp(SparseCSC(Q), x0, t)
+    res4 = mexp(SparseCOO(Q), x0, t)
     @test res0 ≈ res1
     @test res0 ≈ res2
     @test res0 ≈ res3
     @test res0 ≈ res4
     res0 = exp(Q'*t) * x0
-    res1 = mexp(Q, t, x0, transpose=Trans())
-    res2 = mexp(SparseCSR(Q), t, x0, transpose=Trans())
-    res3 = mexp(SparseCSC(Q), t, x0, transpose=Trans())
-    res4 = mexp(SparseCOO(Q), t, x0, transpose=Trans())
+    res1 = mexp(Q, x0, t, transpose=Trans())
+    res2 = mexp(SparseCSR(Q), x0, t, transpose=Trans())
+    res3 = mexp(SparseCSC(Q), x0, t, transpose=Trans())
+    res4 = mexp(SparseCOO(Q), x0, t, transpose=Trans())
     @test res0 ≈ res1
     @test res0 ≈ res2
     @test res0 ≈ res3
@@ -250,10 +250,10 @@ end
         zeros(3,2)
     ]
     res0 = exp(Qdash*t) * x0dash
-    res1 = mexpc(Q, t, x0)
-    res2 = mexpc(SparseCSR(Q), t, x0)
-    res3 = mexpc(SparseCSC(Q), t, x0)
-    res4 = mexpc(SparseCOO(Q), t, x0)
+    res1 = mexpc(Q, x0, t)
+    res2 = mexpc(SparseCSR(Q), x0, t)
+    res3 = mexpc(SparseCSC(Q), x0, t)
+    res4 = mexpc(SparseCOO(Q), x0, t)
     @test res0[1:3,1:2] ≈ res1[1]
     @test res0[1:3,1:2] ≈ res2[1]
     @test res0[1:3,1:2] ≈ res3[1]
@@ -272,10 +272,10 @@ end
         zeros(3,2)
     ]
     res0 = exp(Qdash*t) * x0dash
-    res1 = mexpc(Q, t, x0, transpose=Trans())
-    res2 = mexpc(SparseCSR(Q), t, x0, transpose=Trans())
-    res3 = mexpc(SparseCSC(Q), t, x0, transpose=Trans())
-    res4 = mexpc(SparseCOO(Q), t, x0, transpose=Trans())
+    res1 = mexpc(Q, x0, t, transpose=Trans())
+    res2 = mexpc(SparseCSR(Q), x0, t, transpose=Trans())
+    res3 = mexpc(SparseCSC(Q), x0, t, transpose=Trans())
+    res4 = mexpc(SparseCOO(Q), x0, t, transpose=Trans())
     @test res0[1:3,1:2] ≈ res1[1]
     @test res0[1:3,1:2] ≈ res2[1]
     @test res0[1:3,1:2] ≈ res3[1]
@@ -299,19 +299,24 @@ end
     ]
     ts = LinRange(0.0, 10.0, 10)
     res0 = [exp(Q*t) * x0 for t = ts]
-    res1 = mexp(Q, ts, x0)
-    res2 = mexp(SparseCSR(Q), ts, x0)
-    res3 = mexp(SparseCSC(Q), ts, x0)
-    res4 = mexp(SparseCOO(Q), ts, x0)
+    res1 = mexp(Q, x0, ts)
+    res2 = mexp(SparseCSR(Q), x0, ts)
+    res3 = mexp(SparseCSC(Q), x0, ts)
+    res4 = mexp(SparseCOO(Q), x0, ts)
     @test res0 ≈ res1
     @test res0 ≈ res2
     @test res0 ≈ res3
     @test res0 ≈ res4
-    res0 = [exp(Q'*t) * x0 for t = ts]
-    res1 = mexp(Q, ts, x0, transpose=Trans())
-    res2 = mexp(SparseCSR(Q), ts, x0, transpose=Trans())
-    res3 = mexp(SparseCSC(Q), ts, x0, transpose=Trans())
-    res4 = mexp(SparseCOO(Q), ts, x0, transpose=Trans())
+    @time res0 = [exp(Q'*t) * x0 for t = ts]
+    @time res0 = [exp(Q'*t) * x0 for t = ts]
+    @time res1 = mexp(Q, x0, ts, transpose=Trans())
+    @time res1 = mexp(Q, x0, ts, transpose=Trans())
+    @time res2 = mexp(SparseCSR(Q), x0, ts, transpose=Trans())
+    @time res2 = mexp(SparseCSR(Q), x0, ts, transpose=Trans())
+    @time res3 = mexp(SparseCSC(Q), x0, ts, transpose=Trans())
+    @time res3 = mexp(SparseCSC(Q), x0, ts, transpose=Trans())
+    @time res4 = mexp(SparseCOO(Q), x0, ts, transpose=Trans())
+    @time res4 = mexp(SparseCOO(Q), x0, ts, transpose=Trans())
     @test res0 ≈ res1
     @test res0 ≈ res2
     @test res0 ≈ res3
@@ -344,11 +349,16 @@ end
         x0;
         zeros(3,2)
     ]
-    res0 = ([(exp(Qdash*t) * x0dash)[1:3,1:2] for t = ts], [(exp(Qdash*t) * x0dash)[4:6,1:2] for t = ts])
-    res1 = mexpc(Q, ts, x0)
-    res2 = mexpc(SparseCSR(Q), ts, x0)
-    res3 = mexpc(SparseCSC(Q), ts, x0)
-    res4 = mexpc(SparseCOO(Q), ts, x0)
+    @time res0 = ([(exp(Qdash*t) * x0dash)[1:3,1:2] for t = ts], [(exp(Qdash*t) * x0dash)[4:6,1:2] for t = ts])
+    @time res0 = ([(exp(Qdash*t) * x0dash)[1:3,1:2] for t = ts], [(exp(Qdash*t) * x0dash)[4:6,1:2] for t = ts])
+    @time res1 = mexpc(Q, x0, ts)
+    @time res1 = mexpc(Q, x0, ts)
+    @time res2 = mexpc(SparseCSR(Q), x0, ts)
+    @time res2 = mexpc(SparseCSR(Q), x0, ts)
+    @time res3 = mexpc(SparseCSC(Q), x0, ts)
+    @time res3 = mexpc(SparseCSC(Q), x0, ts)
+    @time res4 = mexpc(SparseCOO(Q), x0, ts)
+    @time res4 = mexpc(SparseCOO(Q), x0, ts)
     @test res0[1] ≈ res1[1]
     @test res0[1] ≈ res2[1]
     @test res0[1] ≈ res3[1]
@@ -366,11 +376,16 @@ end
         x0;
         zeros(3,2)
     ]
-    res0 = ([(exp(Qdash*t) * x0dash)[1:3,1:2] for t = ts], [(exp(Qdash*t) * x0dash)[4:6,1:2] for t = ts])
-    res1 = mexpc(Q, ts, x0, transpose=Trans())
-    res2 = mexpc(SparseCSR(Q), ts, x0, transpose=Trans())
-    res3 = mexpc(SparseCSC(Q), ts, x0, transpose=Trans())
-    res4 = mexpc(SparseCOO(Q), ts, x0, transpose=Trans())
+    @time res0 = ([(exp(Qdash*t) * x0dash)[1:3,1:2] for t = ts], [(exp(Qdash*t) * x0dash)[4:6,1:2] for t = ts])
+    @time res0 = ([(exp(Qdash*t) * x0dash)[1:3,1:2] for t = ts], [(exp(Qdash*t) * x0dash)[4:6,1:2] for t = ts])
+    @time res1 = mexpc(Q, x0, ts, transpose=Trans())
+    @time res1 = mexpc(Q, x0, ts, transpose=Trans())
+    @time res2 = mexpc(SparseCSR(Q), x0, ts, transpose=Trans())
+    @time res2 = mexpc(SparseCSR(Q), x0, ts, transpose=Trans())
+    @time res3 = mexpc(SparseCSC(Q), x0, ts, transpose=Trans())
+    @time res3 = mexpc(SparseCSC(Q), x0, ts, transpose=Trans())
+    @time res4 = mexpc(SparseCOO(Q), x0, ts, transpose=Trans())
+    @time res4 = mexpc(SparseCOO(Q), x0, ts, transpose=Trans())
     @test res0[1] ≈ res1[1]
     @test res0[1] ≈ res2[1]
     @test res0[1] ≈ res3[1]
@@ -379,4 +394,220 @@ end
     @test res0[2] ≈ res2[2]
     @test res0[2] ≈ res3[2]
     @test res0[2] ≈ res4[2]
+end
+
+@testset "mixexp1" begin
+    Q = [
+        -3.0 2.0 0.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    x0 = [
+        1.0 0.0 0.0;
+        0.0 1.0 0.0;
+        0.0 0.0 1.0
+    ]
+    ans = [
+        0.2510060736298584394000 0.1554210097708885740531 0.2424928563850387575052;
+        0.1989569330779636657791 0.2168314920514892163439 0.4320884477342963880808;
+        0.1989569330779636657791 0.1686453260298337586409 0.4802746137559519845617
+    ]
+    @time res1 = mexp(Q, x0, Weibull(2.0, 1.0))
+    @time res1 = mexp(Q, x0, Weibull(2.0, 1.0))
+    for i = eachindex(ans)
+        @test abs(ans[i] - res1[i]) < 1.0e-8
+    end
+end
+
+@testset "mixexpc1" begin
+    Q = [
+        -3.0 2.0 1.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    x0 = [
+        1.0 0.0 0.0;
+        0.0 1.0 0.0;
+        0.0 0.0 1.0
+    ]
+    ans_y = [
+        0.3209844251001398029999 0.2157169520527697503809 0.4632986228470717948724;
+        0.2263385249666138854252 0.2406732432647746833254 0.5329882317685930015472;
+        0.2263385249666138854252 0.1924870824122626444819 0.5811743926211048183461
+    ]
+    ans_cy = [
+        0.3913106241978086541344 0.1769700990060719680841 0.3179461986875124490659;
+        0.1649720992311948519760 0.3017542963096322417016 0.4195005263505657833178;
+        0.1649720992311948519760 0.1431186564517208936742 0.5781361662084771868564
+    ]
+    println(Q)
+    println(x0)
+    @time y, cy = mexpc(Q, x0, Weibull(2.0, 1.0))
+    println(Q)
+    println(x0)
+    @time y, cy = mexpc(Q, x0, Weibull(2.0, 1.0))
+    for i = eachindex(ans_y)
+        @test abs(ans_y[i] - y[i]) < 1.0e-8
+    end
+    for i = eachindex(ans_cy)
+        @test abs(ans_cy[i] - cy[i]) < 1.0e-8
+    end
+end
+
+@testset "conv" begin
+    @testset "conv notrans notrans" begin
+        Q = [
+            -3.0 2.0 0.0;
+            1.0 -5.0 4.0;
+            0.0 1.0 -2.0
+        ]
+        x = rand(3)
+        y = rand(3)
+        A = [
+            Q reshape(x, (3,1)) * reshape(y, (1,3));
+            zeros(3,3) Q
+        ]
+
+        tau = 0.5
+        X = exp(A*tau)
+        z0 = X[1:3,1:3] * x
+
+        P, qv = unif(Q)
+        right = rightbound(qv*tau, 1.0e-8)
+        weight, poi = poipmf(qv*tau, right, left = 0)
+        z = zeros(3)
+        H = zero(Q)
+        convunifstep!(NoTrans(), NoTrans(),
+            P, poi, (0, right), weight, qv * weight, copy(x), y, z, H)
+        @test z ≈ z0
+        @test X[1:3,4:6] ≈ H
+
+        P, qv = unif(SparseCSR(Q))
+        right = rightbound(qv*tau, 1.0e-8)
+        weight, poi = poipmf(qv*tau, right, left = 0)
+        z = zeros(3)
+        H = zero(P)
+        convunifstep!(NoTrans(), NoTrans(),
+            P, poi, (0, right), weight, qv * weight, copy(x), y, z, H)
+        @test z ≈ z0
+        for i = 1:3
+            for z = H.rowptr[i]:H.rowptr[i+1]-1
+                j = H.colind[z]
+                @test X[i, j+3] ≈ H.val[z]
+            end
+        end
+
+        P, qv = unif(SparseCSC(Q))
+        right = rightbound(qv*tau, 1.0e-8)
+        weight, poi = poipmf(qv*tau, right, left = 0)
+        z = zeros(3)
+        H = zero(P)
+        convunifstep!(NoTrans(), NoTrans(),
+            P, poi, (0, right), weight, qv * weight, copy(x), y, z, H)
+        @test z ≈ z0
+        for j = 1:3
+            for z = H.colptr[j]:H.colptr[j+1]-1
+                i = H.rowind[z]
+                @test X[i, j+3] ≈ H.val[z]
+            end
+        end
+
+        P, qv = unif(SparseCOO(Q))
+        right = rightbound(qv*tau, 1.0e-8)
+        weight, poi = poipmf(qv*tau, right, left = 0)
+        z = zeros(3)
+        H = zero(P)
+        convunifstep!(NoTrans(), NoTrans(),
+            P, poi, (0, right), weight, qv * weight, copy(x), y, z, H)
+        @test z ≈ z0
+        for z = 1:nnz(H)
+            i = H.rowind[z]
+            j = H.colind[z]
+            @test X[i, j+3] ≈ H.val[z]
+        end
+    end
+
+    @testset "conv notrans trans" begin
+        Q = [
+            -3.0 2.0 0.0;
+            1.0 -5.0 4.0;
+            0.0 1.0 -2.0
+        ]
+        x = rand(3)
+        y = rand(3)
+        A = [
+            Q reshape(x, (3,1)) * reshape(y, (1,3));
+            zeros(3,3) Q
+        ]
+
+        tau = 0.5
+        X = exp(A*tau)
+        z0 = X[1:3,1:3] * x
+
+        P, qv = unif(Q)
+        right = rightbound(qv*tau, 1.0e-8)
+        weight, poi = poipmf(qv*tau, right, left = 0)
+        z = zeros(3)
+        H = zero(Q)
+        convunifstep!(NoTrans(), Trans(),
+            P, poi, (0, right), weight, qv * weight, x, y, z, H)
+        @test z ≈ z0
+        @test X[1:3,4:6]' ≈ H
+    end
+
+    @testset "conv trans notrans" begin
+        Q = [
+            -3.0 2.0 0.0;
+            1.0 -5.0 4.0;
+            0.0 1.0 -2.0
+        ]
+        x = rand(3)
+        y = rand(3)
+        A = [
+            Q' reshape(x, (3,1)) * reshape(y, (1,3));
+            zeros(3,3) Q'
+        ]
+
+        tau = 0.5
+        X = exp(A*tau)
+        z0 = X[1:3,1:3] * x
+
+        P, qv = unif(Q)
+        right = rightbound(qv*tau, 1.0e-8)
+        weight, poi = poipmf(qv*tau, right, left = 0)
+        z = zeros(3)
+        H = zero(Q)
+        convunifstep!(Trans(), NoTrans(),
+            P, poi, (0, right), weight, qv * weight, x, y, z, H)
+        @test z ≈ z0
+        @test X[1:3,4:6] ≈ H
+    end
+
+    @testset "conv trans trans" begin
+        Q = [
+            -3.0 2.0 0.0;
+            1.0 -5.0 4.0;
+            0.0 1.0 -2.0
+        ]
+        x = rand(3)
+        y = rand(3)
+        A = [
+            Q' reshape(x, (3,1)) * reshape(y, (1,3));
+            zeros(3,3) Q'
+        ]
+
+        tau = 0.5
+        X = exp(A*tau)
+        z0 = X[1:3,1:3] * x
+
+        P, qv = unif(Q)
+        right = rightbound(qv*tau, 1.0e-8)
+        weight, poi = poipmf(qv*tau, right, left = 0)
+        z = zeros(3)
+        H = zero(Q)
+        convunifstep!(Trans(), Trans(),
+            P, poi, (0, right), weight, qv * weight, x, y, z, H)
+        @test z ≈ z0
+        @test X[1:3,4:6]' ≈ H
+    end
 end

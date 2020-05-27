@@ -1,12 +1,28 @@
 
+export Trans, NoTrans
+export @axpy, @scal, @dot
+export itime
+
 """
-@daxpy
-@dascal
+Trans
+NoTrans
+
+Types to represent the forward or backward computation for CTMC
+"""
+
+abstract type AbstractTranspose end
+struct Trans <: AbstractTranspose end
+struct NoTrans <: AbstractTranspose end
+
+"""
+@axpy
+@ascal
+@dot
 
 BLAS Level 1 functions.
 """
 
-macro daxpy(a, x, y)
+macro axpy(a, x, y)
     expr = quote
         let u = $a
             for i in 1:length($x)
@@ -17,7 +33,7 @@ macro daxpy(a, x, y)
     esc(expr)
 end
 
-macro dscal(a, x)
+macro scal(a, x)
     expr = quote
         let u = $a
             for i in 1:length($x)
@@ -39,34 +55,27 @@ macro dot(x, y)
     esc(expr)
 end
 
-# function spsum(A::SparseMatrixCSC{T}, axis::Int)::Vector{T} where {T <: AbstractFloat}
-#     if axis == 0
-#         return _spcolsum(A)
-#     elseif axis == 1
-#         return _sprowsum(A)
-#     else
-#         return sum(A.nzval)
-#     end
-# end
+"""
+itime(t)
 
-# function _sprowsum(A::SparseMatrixCSC{T})::Vector{T} where {T <: AbstractFloat}
-#     x = zeros(A.m)
-#     for j = 1:A.n
-#         for z = A.colptr[j]:(A.colptr[j+1]-1)
-#             x[A.rowval[z]] += A.nzval[z]
-#         end
-#     end
-#     x
-# end
+Get interval time from a given cumulative time vector t.
+The first element is t[1]
 
-# function _spcolsum(A::SparseMatrixCSC{T})::Vector{T} where {T <: AbstractFloat}
-#     x = zeros(A.n)
-#     for j = 1:A.n
-#         for z = A.colptr[j]:(A.colptr[j+1]-1)
-#             x[j] += A.nzval[z]
-#         end
-#     end
-#     x
-# end
+Retuen value:
+dt: interval time vector
+maxt: maximum interval time
+"""
 
-
+function itime(t::AbstractVector{Tv}) where Tv
+    dt = similar(t)
+    prev = Tv(0)
+    maxt = Tv(0)
+    for i = eachindex(t)
+        dt[i] = t[i] - prev
+        prev = t[i]
+        if dt[i] > maxt
+            maxt = dt[i]
+        end
+    end
+    return dt, maxt
+end
