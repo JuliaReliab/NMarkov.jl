@@ -1,6 +1,7 @@
 
 export Trans, NoTrans
-export @daxpy, @dscal, @ddot
+export @axpy, @scal, @dot
+export itime
 
 """
 Trans
@@ -14,13 +15,14 @@ struct Trans <: AbstractTranspose end
 struct NoTrans <: AbstractTranspose end
 
 """
-@daxpy
-@dascal
+@axpy
+@ascal
+@dot
 
 BLAS Level 1 functions.
 """
 
-macro daxpy(a, x, y)
+macro axpy(a, x, y)
     expr = quote
         let u = $a
             for i in 1:length($x)
@@ -31,7 +33,7 @@ macro daxpy(a, x, y)
     esc(expr)
 end
 
-macro dscal(a, x)
+macro scal(a, x)
     expr = quote
         let u = $a
             for i in 1:length($x)
@@ -42,7 +44,7 @@ macro dscal(a, x)
     esc(expr)
 end
 
-macro ddot(x, y)
+macro dot(x, y)
     expr = quote
         s = 0
         for i in 1:length($x)
@@ -51,4 +53,29 @@ macro ddot(x, y)
         s
     end
     esc(expr)
+end
+
+"""
+itime(t)
+
+Get interval time from a given cumulative time vector t.
+The first element is t[1]
+
+Retuen value:
+dt: interval time vector
+maxt: maximum interval time
+"""
+
+function itime(t::AbstractVector{Tv}) where Tv
+    dt = similar(t)
+    prev = Tv(0)
+    maxt = Tv(0)
+    for i = eachindex(t)
+        dt[i] = t[i] - prev
+        prev = t[i]
+        if dt[i] > maxt
+            maxt = dt[i]
+        end
+    end
+    return dt, maxt
 end

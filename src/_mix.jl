@@ -31,10 +31,10 @@ Return value:
 function mexp(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
     bounds = (Tv(0.0), Tv(Inf)), transpose::AbstractTranspose = NoTrans(),
     ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    m, n = size(Q)
+    @assert m == n
     de = deint(f, bounds[1], bounds[2])
-    dt = diff(de.x)
-    pushfirst!(dt, de.x[1])
-    maxt = maximum(dt)
+    dt, maxt = itime(de.x)
     P, qv = unif(Q, ufact)
     right = rightbound(qv*maxt, eps)
     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
@@ -46,10 +46,10 @@ function mexp(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
         weight = poipmf!(qv*dt[i], prob; left=0, right=right)
         y1 .= Tv(0)
         unifstep!(transpose, P, prob, (0, right), weight, y0, y1)
-        @daxpy(de.w[i], y1, result)
+        @axpy(de.w[i], y1, result)
         y0 .= y1
     end
-    @dscal(de.h, result)
+    @scal(de.h, result)
     return result
 end
 
@@ -90,10 +90,10 @@ Return value (tuple)
 function mexpc(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
     bounds = (Tv(0.0), Tv(Inf)), transpose::AbstractTranspose = NoTrans(),
     ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    m, n = size(Q)
+    @assert m == n
     de = deint(f, bounds[1], bounds[2])
-    dt = diff(de.x)
-    pushfirst!(dt, de.x[1])
-    maxt = maximum(dt)
+    dt, maxt = itime(de.x)
     P, qv = unif(Q, ufact)
     right = rightbound(qv*maxt, eps) + 1
     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
@@ -110,12 +110,12 @@ function mexpc(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
         y1 .= Tv(0)
         cunifstep!(transpose, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
         cy .+= tmp
-        @daxpy(de.w[i], y1, result)
-        @daxpy(de.w[i], cy, cresult)
+        @axpy(de.w[i], y1, result)
+        @axpy(de.w[i], cy, cresult)
         y0 .= y1
     end
-    @dscal(de.h, result)
-    @dscal(de.h, cresult)
+    @scal(de.h, result)
+    @scal(de.h, cresult)
     return result, cresult
 end
 

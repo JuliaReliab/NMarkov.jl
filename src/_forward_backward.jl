@@ -31,12 +31,12 @@ Return value: nothing
     x::Array{Tv,N}, y::Array{Tv,N})::Nothing where {Ti,Tv,N}
     left, right = range
     Pdash = P'
-    @daxpy(poi[left], x, y)
+    @axpy(poi[left], x, y)
     for i = left+1:right
         x .= Pdash * x
-        @daxpy(poi[i], x, y)
+        @axpy(poi[i], x, y)
     end
-    @dscal(1/weight, y)
+    @scal(1/weight, y)
     nothing
 end
 
@@ -44,12 +44,12 @@ end
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N})::Nothing where {Ti,Tv,N}
     left, right = range
-    @daxpy(poi[left], x, y)
+    @axpy(poi[left], x, y)
     for i = left+1:right
         x .= P * x
-        @daxpy(poi[i], x, y)
+        @axpy(poi[i], x, y)
     end
-    @dscal(1/weight, y)
+    @scal(1/weight, y)
     nothing
 end
 
@@ -82,15 +82,15 @@ Return value: nothing
     x::Array{Tv,N}, y::Array{Tv,N}, cy::Array{Tv,N})::Nothing where {Ti,Tv,N}
     left, right = range
     Pdash = P'
-    @daxpy(poi[left], x, y)
-    @daxpy(cpoi[left], x, cy)
+    @axpy(poi[left], x, y)
+    @axpy(cpoi[left], x, cy)
     for i = left+1:right
         x .= Pdash * x
-        @daxpy(poi[i], x, y)
-        @daxpy(cpoi[i], x, cy)
+        @axpy(poi[i], x, y)
+        @axpy(cpoi[i], x, cy)
     end
-    @dscal(1/weight, y)
-    @dscal(1/qv_weight, cy)
+    @scal(1/weight, y)
+    @scal(1/qv_weight, cy)
     nothing
 end
 
@@ -98,15 +98,15 @@ end
     poi::Vector{Tv}, cpoi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N}, cy::Array{Tv,N})::Nothing where {Ti,Tv,N}
     left, right = range
-    @daxpy(poi[left], x, y)
-    @daxpy(cpoi[left], x, cy)
+    @axpy(poi[left], x, y)
+    @axpy(cpoi[left], x, cy)
     for i = left+1:right
         x .= P * x
-        @daxpy(poi[i], x, y)
-        @daxpy(cpoi[i], x, cy)
+        @axpy(poi[i], x, y)
+        @axpy(cpoi[i], x, cy)
     end
-    @dscal(1/weight, y)
-    @dscal(1/qv_weight, cy)
+    @scal(1/weight, y)
+    @scal(1/qv_weight, cy)
     nothing
 end
 

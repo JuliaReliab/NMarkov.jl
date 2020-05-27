@@ -26,6 +26,8 @@ Return value:
 
 function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, t::Tv;
     transpose::AbstractTranspose = NoTrans(), ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    m, n = size(Q)
+    @assert m == n
     P, qv = unif(Q, ufact)
     right = rightbound(qv*t, eps)
     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
@@ -59,6 +61,8 @@ Return value (tuple)
 
 function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, t::Tv;
     transpose::AbstractTranspose = NoTrans(), ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    m, n = size(Q)
+    @assert m == n
     P, qv = unif(Q, ufact)
     right = rightbound(qv*t, eps) + 1
     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
@@ -91,22 +95,21 @@ Return value:
 
 function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, ts::AbstractVector{Tv};
     transpose::AbstractTranspose = NoTrans(), ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
-    dt = diff(ts)
-    @assert all(dt .>= zero(Tv))
-    pushfirst!(dt, ts[1])
-    maxt = maximum(dt)
+    m, n = size(Q)
+    @assert m == n
+    dt, maxt = itime(sort(ts))
     P, qv = unif(Q, ufact)
     right = rightbound(qv*maxt, eps)
     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
     prob = Vector{Tv}(undef, right+1)
-    result = Vector{Array{Tv,N}}()
+    result = Vector{Array{Tv,N}}(undef, length(dt))
     y0 = copy(x)
-    for tau in dt
-        right = rightbound(qv*tau, eps)
-        weight = poipmf!(qv*tau, prob; left=0, right=right)
+    for k = eachindex(dt)
+        right = rightbound(qv*dt[k], eps)
+        weight = poipmf!(qv*dt[k], prob; left=0, right=right)
         y1 = zero(y0)
         unifstep!(transpose, P, prob, (0, right), weight, y0, y1)
-        push!(result, y1)
+        result[k] = y1
         y0 .= y1
     end
     return result
@@ -136,29 +139,28 @@ Return value (tuple)
 
 function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, ts::AbstractVector{Tv};
     transpose::AbstractTranspose = NoTrans(), ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
-    dt = diff(ts)
-    @assert all(dt .>= zero(Tv))
-    pushfirst!(dt, ts[1])
-    maxt = maximum(dt)
+    m, n = size(Q)
+    @assert m == n
+    dt, maxt = itime(ts)
     P, qv = unif(Q, ufact)
     right = rightbound(qv*maxt, eps) + 1
     @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
     prob = Vector{Tv}(undef, right+1)
     cprob = Vector{Tv}(undef, right+1)
-    result = Vector{Array{Tv,N}}()
-    cresult = Vector{Array{Tv,N}}()
+    result = Vector{Array{Tv,N}}(undef, length(dt))
+    cresult = Vector{Array{Tv,N}}(undef, length(dt))
     y0 = copy(x)
     cy = zero(x)
     tmp = similar(x)
-    for tau in dt
-        right = rightbound(qv*tau, eps) + 1
-        weight = cpoipmf!(qv*tau, prob, cprob; left=0, right=right)
+    for k = eachindex(dt)
+        right = rightbound(qv*dt[k], eps) + 1
+        weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
         y1 = zero(y0)
         tmp .= Tv(0)
         cunifstep!(transpose, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
         cy .+= tmp
-        push!(result, y1)
-        push!(cresult, copy(cy))
+        result[k] = copy(y1)
+        cresult[k] = copy(cy)
         y0 .= y1
     end
     return result, cresult

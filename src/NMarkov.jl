@@ -3,7 +3,7 @@ module NMarkov
 # using LinearAlgebra
 # using Printf
 
-using SparseMatrix: SparseCSR, SparseCSC, SparseCOO, spdiag
+using SparseMatrix: SparseCSR, SparseCSC, SparseCOO, spdiag, nnz
 using Distributions: UnivariateDistribution, pdf
 using Deformula: deint
 
@@ -22,5 +22,7 @@ include("_forward_backward.jl")
 include("_transient.jl")
 
 include("_mix.jl")
+
+include("_conv.jl")
 
 end # module
