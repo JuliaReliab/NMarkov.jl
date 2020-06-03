@@ -24,35 +24,35 @@ BLAS Level 1 functions.
 
 macro axpy(a, x, y)
     expr = quote
-        let u = $a
-            for i in 1:length($x)
-                $y[i] += u * $x[i]
+        let u = $(esc(a))
+            for i in eachindex($(esc(x)))
+                $(esc(y))[i] += u * $(esc(x))[i]
             end
         end
     end
-    esc(expr)
+    expr
 end
 
 macro scal(a, x)
     expr = quote
-        let u = $a
-            for i in 1:length($x)
-                $x[i] *= u
+        let u = $(esc(a))
+            for i in eachindex($(esc(x)))
+                $(esc(x))[i] *= u
             end
         end
     end
-    esc(expr)
+    expr
 end
 
 macro dot(x, y)
     expr = quote
         s = 0
-        for i in 1:length($x)
-            s += $x[i] * $y[i]
+        for i in eachindex($(esc(x)))
+            s += $(esc(x))[i] * $(esc(y))[i]
         end
         s
     end
-    esc(expr)
+    expr
 end
 
 """
