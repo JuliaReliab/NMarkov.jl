@@ -2,10 +2,10 @@
 Mixed Matrix Exponential Function
 """
 
-export mexp, mexpc
+export mexp, mexpmix, mexpc, mexpcmix
 
 """
-mexp(f, Q, x; bounds = (0, Inf), transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
+mexpmix(f, Q, x; bounds = (0, Inf), transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
 mexp(Q, x, dist, bounds = (minimum(dist), maximum(dist)), transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
 
 Compute the probability vector for CTMC mixed with dist
@@ -28,7 +28,7 @@ Return value:
 - probability vector
 """
 
-function mexp(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
+function mexpmix(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
     bounds = (Tv(0.0), Tv(Inf)), transpose::AbstractTranspose = NoTrans(),
     ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
     m, n = size(Q)
@@ -56,13 +56,13 @@ end
 function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, dist::UnivariateDistribution;
     bounds = (minimum(dist), maximum(dist)), transpose::AbstractTranspose = NoTrans(),
     ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
-    mexp(Q, x, bounds=bounds, transpose=transpose, ufact=ufact, eps=eps, rmax=rmax) do x
+    mexpmix(Q, x, bounds=bounds, transpose=transpose, ufact=ufact, eps=eps, rmax=rmax) do x
         pdf(dist, x)
     end
 end
 
 """
-mexpc(f, Q, x; bounds = (0, Inf), transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
+mexpcmix(f, Q, x; bounds = (0, Inf), transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
 mexpc(Q, x, dist, bounds = (minimum(dist), maximum(dist)), transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
 
 Compute the probability vector for CTMC and the cumulative value for time series.
@@ -87,7 +87,7 @@ Return value (tuple)
 - cumulative value
 """
 
-function mexpc(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
+function mexpcmix(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
     bounds = (Tv(0.0), Tv(Inf)), transpose::AbstractTranspose = NoTrans(),
     ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
     m, n = size(Q)
@@ -122,7 +122,7 @@ end
 function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, dist::UnivariateDistribution;
     bounds = (minimum(dist), maximum(dist)), transpose::AbstractTranspose = NoTrans(),
     ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
-    mexpc(Q, x, bounds=bounds, transpose=transpose, ufact=ufact, eps=eps, rmax=rmax) do x
+    mexpcmix(Q, x, bounds=bounds, transpose=transpose, ufact=ufact, eps=eps, rmax=rmax) do x
         pdf(dist, x)
     end
 end
