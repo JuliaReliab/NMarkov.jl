@@ -5,7 +5,7 @@ Transient analysis for CTMC
 export mexp, mexpc
 
 """
-mexp(Q, x, t; transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
+mexp(Q, x, t; transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)
 
 Compute the probability vector for CTMC.
 
@@ -25,12 +25,12 @@ Return value:
 """
 
 function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, t::Tv;
-    transpose::AbstractTranspose = NoTrans(), ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
     m, n = size(Q)
     @assert m == n
     P, qv = unif(Q, ufact)
     right = rightbound(qv*t, eps)
-    @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
+    @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
     weight, poi = poipmf(qv*t, right, left = 0)
     y = zero(x)
     unifstep!(transpose, P, poi, (0, right), weight, copy(x), y)
@@ -38,7 +38,7 @@ function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, t::Tv;
 end
 
 """
-mexpc(Q, x, t; transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
+mexpc(Q, x, t; transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)
 
 Compute the probability vector for CTMC and the cumulative value.
 
@@ -60,12 +60,12 @@ Return value (tuple)
 """
 
 function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, t::Tv;
-    transpose::AbstractTranspose = NoTrans(), ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
     m, n = size(Q)
     @assert m == n
     P, qv = unif(Q, ufact)
     right = rightbound(qv*t, eps) + 1
-    @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
+    @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
     weight, poi, cpoi = cpoipmf(qv*t, right, left = 0)
     y = zero(x)
     cy = zero(x)
@@ -74,7 +74,7 @@ function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, t::Tv;
 end
 
 """
-mexp(Q, x, ts; transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
+mexp(Q, x, ts; transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)
 
 Compute the probability vector for CTMC for time series
 
@@ -94,13 +94,13 @@ Return value:
 """
 
 function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, ts::AbstractVector{Tv};
-    transpose::AbstractTranspose = NoTrans(), ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
     m, n = size(Q)
     @assert m == n
     dt, maxt = itime(sort(ts))
     P, qv = unif(Q, ufact)
     right = rightbound(qv*maxt, eps)
-    @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
+    @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
     prob = Vector{Tv}(undef, right+1)
     result = Vector{Array{Tv,N}}(undef, length(dt))
     y0 = copy(x)
@@ -116,7 +116,7 @@ function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, ts::AbstractVector{Tv};
 end
 
 """
-mexpc(Q, x, ts; transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
+mexpc(Q, x, ts; transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)
 
 Compute the probability vector for CTMC and the cumulative value for time series.
 
@@ -138,13 +138,13 @@ Return value (tuple)
 """
 
 function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, ts::AbstractVector{Tv};
-    transpose::AbstractTranspose = NoTrans(), ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
     m, n = size(Q)
     @assert m == n
     dt, maxt = itime(ts)
     P, qv = unif(Q, ufact)
     right = rightbound(qv*maxt, eps) + 1
-    @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
+    @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
     prob = Vector{Tv}(undef, right+1)
     cprob = Vector{Tv}(undef, right+1)
     result = Vector{Array{Tv,N}}(undef, length(dt))
@@ -165,3 +165,4 @@ function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, ts::AbstractVector{Tv};
     end
     return result, cresult
 end
+

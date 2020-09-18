@@ -26,7 +26,14 @@ Parameters:
 - y: Array (out). y should be zero before executing
 Return value: nothing
 """
-@origin (poi => left) function unifstep!(::Trans, P::AbstractMatrix{Tv},
+
+function unifstep!(tr::Symbol, P::AbstractMatrix{Tv},
+    poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv,
+    x::Array{Tv,N}, y::Array{Tv,N})::Nothing where {Ti,Tv,N}
+    _unifstep!(Val(tr), P, poi, range, weight, x, y)
+end
+
+@origin (poi => left) function _unifstep!(::Val{:T}, P::AbstractMatrix{Tv},
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N})::Nothing where {Ti,Tv,N}
     left, right = range
@@ -40,7 +47,7 @@ Return value: nothing
     nothing
 end
 
-@origin (poi => left) function unifstep!(::NoTrans, P::AbstractMatrix{Tv},
+@origin (poi => left) function _unifstep!(::Val{:N}, P::AbstractMatrix{Tv},
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N})::Nothing where {Ti,Tv,N}
     left, right = range
@@ -77,7 +84,13 @@ Parameters:
 Return value: nothing
 """
 
-@origin (poi => left, cpoi => left) function cunifstep!(::Trans, P::AbstractMatrix{Tv},
+function cunifstep!(tr::Symbol, P::AbstractMatrix{Tv},
+    poi::Vector{Tv}, cpoi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
+    x::Array{Tv,N}, y::Array{Tv,N}, cy::Array{Tv,N})::Nothing where {Ti,Tv,N}
+    _cunifstep!(Val(tr), P, poi, cpoi, range, weight, qv_weight, x, y, cy)
+end
+
+@origin (poi => left, cpoi => left) function _cunifstep!(::Val{:T}, P::AbstractMatrix{Tv},
     poi::Vector{Tv}, cpoi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N}, cy::Array{Tv,N})::Nothing where {Ti,Tv,N}
     left, right = range
@@ -94,7 +107,7 @@ Return value: nothing
     nothing
 end
 
-@origin (poi => left, cpoi => left) function cunifstep!(::NoTrans, P::AbstractMatrix{Tv},
+@origin (poi => left, cpoi => left) function _cunifstep!(::Val{:N}, P::AbstractMatrix{Tv},
     poi::Vector{Tv}, cpoi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N}, cy::Array{Tv,N})::Nothing where {Ti,Tv,N}
     left, right = range

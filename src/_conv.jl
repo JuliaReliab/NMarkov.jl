@@ -88,7 +88,15 @@ Parameters:
 Return value: nothing
 """
 
-@origin (vc => left, poi => left) function convunifstep!(::NoTrans, ::NoTrans,
+function convunifstep!(trQ::Symbol, trH::Symbol,
+    P::AbstractMatrix{Tv},
+    poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
+    x::Array{Tv,N}, y::Array{Tv,N}, z::Array{Tv,N},
+    H::AbstractMatrix{Tv})::Nothing where {Ti,Tv,N}
+    _convunifstep!(Val(trQ), Val(trH), P, poi, range, weight, qv_weight, x, y, z, H)
+end
+
+@origin (vc => left, poi => left) function _convunifstep!(::Val{:N}, ::Val{:N},
     P::AbstractMatrix{Tv},
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N}, z::Array{Tv,N},
@@ -115,7 +123,7 @@ Return value: nothing
     nothing
 end
 
-@origin (vc => left, poi => left) function convunifstep!(::Trans, ::NoTrans,
+@origin (vc => left, poi => left) function _convunifstep!(::Val{:T}, ::Val{:N},
     P::AbstractMatrix{Tv},
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N}, z::Array{Tv,N},
@@ -142,7 +150,7 @@ end
     nothing
 end
 
-@origin (vc => left, poi => left) function convunifstep!(::NoTrans, ::Trans,
+@origin (vc => left, poi => left) function _convunifstep!(::Val{:N}, ::Val{:T},
     P::AbstractMatrix{Tv},
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N}, z::Array{Tv,N},
@@ -169,7 +177,7 @@ end
     nothing
 end
 
-@origin (vc => left, poi => left) function convunifstep!(::Trans, ::Trans,
+@origin (vc => left, poi => left) function _convunifstep!(::Val{:T}, ::Val{:T},
     P::AbstractMatrix{Tv},
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N}, z::Array{Tv,N},

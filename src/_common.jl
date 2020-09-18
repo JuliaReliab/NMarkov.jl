@@ -1,18 +1,6 @@
 
-export Trans, NoTrans, AbstractTranspose
 export @axpy, @scal, @dot
 export itime
-
-"""
-Trans
-NoTrans
-
-Types to represent the forward or backward computation for CTMC
-"""
-
-abstract type AbstractTranspose end
-struct Trans <: AbstractTranspose end
-struct NoTrans <: AbstractTranspose end
 
 """
 @axpy
