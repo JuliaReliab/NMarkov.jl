@@ -34,6 +34,10 @@ A tuple of
 
 """
 
+function unif(Q::SparseMatrixCSC{Tv,Ti}, ufact::Tv = 1.01) where {Tv, Ti}
+    @unif(Q, ufact)
+end
+
 function unif(Q::SparseCSR{Tv,Ti}, ufact::Tv = 1.01) where {Tv, Ti}
     @unif(Q, ufact)
 end

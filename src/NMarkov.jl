@@ -3,6 +3,7 @@ module NMarkov
 # using LinearAlgebra
 # using Printf
 
+using SparseArrays: SparseMatrixCSC
 using SparseMatrix: SparseCSR, SparseCSC, SparseCOO, spdiag, nnz
 using Distributions: UnivariateDistribution, pdf
 using Deformula: deint

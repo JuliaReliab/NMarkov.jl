@@ -37,7 +37,7 @@ end
 
 """
 stsengs(Q::SparseCSC{Tv,Ti}, pis::Vector{Tv}, b::Vector{Tv}:
-  x0::Vector{Tv}=stsenguess(Q,Tv), maxiter=5000, steps=20, reltol::Tv=Tv(1.0e-6))
+  x0::Vector{Tv}=stsenguess(Q,Tv), maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6))
 
 Get a sensitivity vector for stationary vector of CTMC.
 
@@ -48,7 +48,7 @@ Parameters:
 - x0: Initial vector for iteration
 - maxiter: The maximum number of iteration. The algorithm stops when the number of iteration becomes maxiter.
 - steps: The number of steps to check the convergence
-- reltol: the tolerance error. When the relative errors of two successive vectors with steps attains reltol, the algorithm stops.
+- rtol: the tolerance error. When the relative errors of two successive vectors with steps attains rtol, the algorithm stops.
 Return value:
 A tuple of
 - x: sensitivity vector
@@ -57,8 +57,13 @@ A tuple of
 - rerror: The relative error when the algorithm stops
 """
 
+function stsengs(Q::SparseMatrixCSC{Tv,Ti}, pis::Vector{Tv}, b::Vector{Tv};
+    x0::Vector{Tv}=stsenguess(Q), maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
+    stsengs(SparseCSC(Q), pis, b, x0=x0, maxiter=maxiter, steps=steps, rtol=rtol)
+end
+
 function stsengs(Q::SparseCSC{Tv,Ti}, pis::Vector{Tv}, b::Vector{Tv};
-    x0::Vector{Tv}=stsenguess(Q), maxiter=5000, steps=20, reltol::Tv=Tv(1.0e-6)) where {Tv,Ti}
+    x0::Vector{Tv}=stsenguess(Q), maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
     m, n = size(Q)
     @assert m == n
     @assert ctmcstcheck(Q, pis)
@@ -75,7 +80,7 @@ function stsengs(Q::SparseCSC{Tv,Ti}, pis::Vector{Tv}, b::Vector{Tv};
         end
         rerror = maximum(abs.((x - prevx) ./ x))
         iter += steps
-        if rerror < reltol
+        if rerror < rtol
             conv = true
             break
         end
@@ -88,7 +93,7 @@ end
 
 """
 stsengs(Q::SparseCSC{Tv,Ti}, pis::Vector{Tv}, b::Vector{Tv}:
-  x0::Vector{Tv}=stsenguess(Q,Tv), maxiter=5000, steps=20, reltol::Tv=Tv(1.0e-6))
+  x0::Vector{Tv}=stsenguess(Q,Tv), maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6))
 
 Get a sensitivity vector for stationary vector of CTMC.
 For instance, the first derivative of stationary vector with power method
@@ -102,7 +107,7 @@ Parameters:
 - x0: Initial vector for iteration
 - maxiter: The maximum number of iteration. The algorithm stops when the number of iteration becomes maxiter.
 - steps: The number of steps to check the convergence
-- reltol: the tolerance error. When the relative errors of two successive vectors with steps attains reltol, the algorithm stops.
+- rtol: the tolerance error. When the relative errors of two successive vectors with steps attains rtol, the algorithm stops.
 Return value:
 A tuple of
 - x: sensitivity vector

@@ -3,6 +3,7 @@ using Test
 using Printf
 using Distributions
 using SparseMatrix
+using SparseArrays
 
 @testset "PoissonRight" begin
     for q in [1.0e-6, 1.0e-7, 1.0e-8, 1.0e-9, 1.0e-10, 1.0e-11, 1.0e-12]
@@ -92,13 +93,30 @@ end
     @test x0 ≈ x
 end
 
-@testset "GS" begin
+@testset "GS1" begin
     Q = [
         -3.0 2.0 1.0;
         1.0 -5.0 4.0;
         1.0 1.0 -2.0
     ]
     @time x, = stgs(SparseCSC(Q), x0 = [0.3, 0.4, 0.3])
+    Q1 = copy(Q)
+    Q1[:,1] .= 1
+    b = zeros(size(Q1)[1])
+    b[1] = 1.0
+    @time x0 = Q1' \ b
+    @test x0 ≈ x
+    @time x, = stgs(SparseCSC(Q))
+    @test x0 ≈ x
+end
+
+@testset "GS2" begin
+    Q = [
+        -3.0 2.0 1.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    @time x, = stgs(SparseMatrixCSC(Q), x0 = [0.3, 0.4, 0.3])
     Q1 = copy(Q)
     Q1[:,1] .= 1
     b = zeros(size(Q1)[1])
@@ -126,7 +144,7 @@ end
     @test x0 ≈ x
 end
 
-@testset "STSENGS" begin
+@testset "STSENGS1" begin
     Q = [
         -3.0 2.0 1.0;
         1.0 -5.0 4.0;
@@ -140,6 +158,29 @@ end
     pis = gth(Q)
     b = Qdash' * pis
     y0 = stsengs(SparseCSC(Q), pis, b)
+    
+    Q1 = copy(Q)
+    Q1[:,1] .= 1
+    b[1] = 0.0
+    x0 = Q1' \ (-b)
+
+    @test x0 ≈ y0[1]
+end
+
+@testset "STSENGS2" begin
+    Q = [
+        -3.0 2.0 1.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    Qdash = [
+        -1.0 1.0 0.0;
+        0.0 0.0 0.0;
+        0.0 0.0 0.0
+    ]
+    pis = gth(Q)
+    b = Qdash' * pis
+    y0 = stsengs(SparseMatrixCSC(Q), pis, b)
     
     Q1 = copy(Q)
     Q1[:,1] .= 1
@@ -174,7 +215,7 @@ end
     @test x0 ≈ y0[1]
 end
 
-@testset "QSTGS" begin
+@testset "QSTGS1" begin
     Q = [
         -3.0 2.0 0.0;
         1.0 -5.0 4.0;
@@ -182,6 +223,23 @@ end
     ]
     xi = [1.0, 0.0, 0.0]
     @time x = qstgs(SparseCSC(Q), xi)
+
+    P, qv = unif(Q)
+    pxi = xi / qv
+    @time x2 = qstpower(P, pxi)
+
+    @test x[1] ≈ x2[1]
+    @test x[2] ≈ x2[2]*qv
+end
+
+@testset "QSTGS2" begin
+    Q = [
+        -3.0 2.0 0.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    xi = [1.0, 0.0, 0.0]
+    @time x = qstgs(SparseMatrixCSC(Q), xi)
 
     P, qv = unif(Q)
     pxi = xi / qv
@@ -208,19 +266,23 @@ end
     res2 = mexp(SparseCSR(Q), x0, t)
     res3 = mexp(SparseCSC(Q), x0, t)
     res4 = mexp(SparseCOO(Q), x0, t)
+    res5 = mexp(SparseMatrixCSC(Q), x0, t)
     @test res0 ≈ res1
     @test res0 ≈ res2
     @test res0 ≈ res3
     @test res0 ≈ res4
+    @test res0 ≈ res5
     res0 = exp(Q'*t) * x0
     res1 = mexp(Q, x0, t, transpose=Trans())
     res2 = mexp(SparseCSR(Q), x0, t, transpose=Trans())
     res3 = mexp(SparseCSC(Q), x0, t, transpose=Trans())
     res4 = mexp(SparseCOO(Q), x0, t, transpose=Trans())
+    res5 = mexp(SparseMatrixCSC(Q), x0, t, transpose=Trans())
     @test res0 ≈ res1
     @test res0 ≈ res2
     @test res0 ≈ res3
     @test res0 ≈ res4
+    @test res0 ≈ res5
 end
 
 @testset "mexpc1" begin
@@ -254,14 +316,17 @@ end
     res2 = mexpc(SparseCSR(Q), x0, t)
     res3 = mexpc(SparseCSC(Q), x0, t)
     res4 = mexpc(SparseCOO(Q), x0, t)
+    res5 = mexpc(SparseMatrixCSC(Q), x0, t)
     @test res0[1:3,1:2] ≈ res1[1]
     @test res0[1:3,1:2] ≈ res2[1]
     @test res0[1:3,1:2] ≈ res3[1]
     @test res0[1:3,1:2] ≈ res4[1]
+    @test res0[1:3,1:2] ≈ res5[1]
     @test res0[4:6,1:2] ≈ res1[2]
     @test res0[4:6,1:2] ≈ res2[2]
     @test res0[4:6,1:2] ≈ res3[2]
     @test res0[4:6,1:2] ≈ res4[2]
+    @test res0[4:6,1:2] ≈ res5[2]
 
     Qdash = [
         Q' zeros(3,3);
@@ -276,14 +341,17 @@ end
     res2 = mexpc(SparseCSR(Q), x0, t, transpose=Trans())
     res3 = mexpc(SparseCSC(Q), x0, t, transpose=Trans())
     res4 = mexpc(SparseCOO(Q), x0, t, transpose=Trans())
+    res5 = mexpc(SparseMatrixCSC(Q), x0, t, transpose=Trans())
     @test res0[1:3,1:2] ≈ res1[1]
     @test res0[1:3,1:2] ≈ res2[1]
     @test res0[1:3,1:2] ≈ res3[1]
     @test res0[1:3,1:2] ≈ res4[1]
+    @test res0[1:3,1:2] ≈ res5[1]
     @test res0[4:6,1:2] ≈ res1[2]
     @test res0[4:6,1:2] ≈ res2[2]
     @test res0[4:6,1:2] ≈ res3[2]
     @test res0[4:6,1:2] ≈ res4[2]
+    @test res0[4:6,1:2] ≈ res5[2]
 end
 
 @testset "mexp2" begin
@@ -303,10 +371,12 @@ end
     res2 = mexp(SparseCSR(Q), x0, ts)
     res3 = mexp(SparseCSC(Q), x0, ts)
     res4 = mexp(SparseCOO(Q), x0, ts)
+    res5 = mexp(SparseMatrixCSC(Q), x0, ts)
     @test res0 ≈ res1
     @test res0 ≈ res2
     @test res0 ≈ res3
     @test res0 ≈ res4
+    @test res0 ≈ res5
     @time res0 = [exp(Q'*t) * x0 for t = ts]
     @time res0 = [exp(Q'*t) * x0 for t = ts]
     @time res1 = mexp(Q, x0, ts, transpose=Trans())
@@ -317,10 +387,13 @@ end
     @time res3 = mexp(SparseCSC(Q), x0, ts, transpose=Trans())
     @time res4 = mexp(SparseCOO(Q), x0, ts, transpose=Trans())
     @time res4 = mexp(SparseCOO(Q), x0, ts, transpose=Trans())
+    @time res5 = mexp(SparseMatrixCSC(Q), x0, ts, transpose=Trans())
+    @time res5 = mexp(SparseMatrixCSC(Q), x0, ts, transpose=Trans())
     @test res0 ≈ res1
     @test res0 ≈ res2
     @test res0 ≈ res3
     @test res0 ≈ res4
+    @test res0 ≈ res5
 end
 
 @testset "mexpc2" begin
@@ -359,14 +432,18 @@ end
     @time res3 = mexpc(SparseCSC(Q), x0, ts)
     @time res4 = mexpc(SparseCOO(Q), x0, ts)
     @time res4 = mexpc(SparseCOO(Q), x0, ts)
+    @time res5 = mexpc(SparseMatrixCSC(Q), x0, ts)
+    @time res5 = mexpc(SparseMatrixCSC(Q), x0, ts)
     @test res0[1] ≈ res1[1]
     @test res0[1] ≈ res2[1]
     @test res0[1] ≈ res3[1]
     @test res0[1] ≈ res4[1]
+    @test res0[1] ≈ res5[1]
     @test res0[2] ≈ res1[2]
     @test res0[2] ≈ res2[2]
     @test res0[2] ≈ res3[2]
     @test res0[2] ≈ res4[2]
+    @test res0[2] ≈ res5[2]
 
     Qdash = [
         Q' zeros(3,3);
@@ -386,14 +463,18 @@ end
     @time res3 = mexpc(SparseCSC(Q), x0, ts, transpose=Trans())
     @time res4 = mexpc(SparseCOO(Q), x0, ts, transpose=Trans())
     @time res4 = mexpc(SparseCOO(Q), x0, ts, transpose=Trans())
+    @time res5 = mexpc(SparseMatrixCSC(Q), x0, ts, transpose=Trans())
+    @time res5 = mexpc(SparseMatrixCSC(Q), x0, ts, transpose=Trans())
     @test res0[1] ≈ res1[1]
     @test res0[1] ≈ res2[1]
     @test res0[1] ≈ res3[1]
     @test res0[1] ≈ res4[1]
+    @test res0[1] ≈ res5[1]
     @test res0[2] ≈ res1[2]
     @test res0[2] ≈ res2[2]
     @test res0[2] ≈ res3[2]
     @test res0[2] ≈ res4[2]
+    @test res0[2] ≈ res5[2]
 end
 
 @testset "mixexp1" begin
@@ -524,6 +605,21 @@ end
             i = H.rowind[z]
             j = H.colind[z]
             @test X[i, j+3] ≈ H.val[z]
+        end
+
+        P, qv = unif(SparseMatrixCSC(Q))
+        right = rightbound(qv*tau, 1.0e-8)
+        weight, poi = poipmf(qv*tau, right, left = 0)
+        z = zeros(3)
+        H = zero(P)
+        convunifstep!(NoTrans(), NoTrans(),
+            P, poi, (0, right), weight, qv * weight, copy(x), y, z, H)
+        @test z ≈ z0
+        for j = 1:3
+            for z = H.colptr[j]:H.colptr[j+1]-1
+                i = H.rowval[z]
+                @test X[i, j+3] ≈ H.nzval[z]
+            end
         end
     end
 
