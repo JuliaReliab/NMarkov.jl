@@ -6,13 +6,8 @@ module NMarkov
 using Origin: @origin
 using SparseArrays: SparseMatrixCSC, nnz
 using SparseMatrix: SparseCSR, SparseCSC, SparseCOO, spdiag
-using Distributions: UnivariateDistribution, pdf, cquantile, Normal, Poisson
+using Distributions: UnivariateDistribution, pdf, cquantile, Normal
 using Deformula: deint
-
-export @axpy, @scal, @dot
-export itime
-export poipmf!, poipmf, cpoipmf!, cpoipmf, rightbound
-export unifstep!, cunifstep!, convunifstep!
 
 export unif
 export gth!, gth

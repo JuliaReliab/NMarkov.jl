@@ -2,8 +2,6 @@
 Convolution for CTMC
 """
 
-export convunifstep!
-
 function _dger!(x::Array{Tv,1}, y::Array{Tv,1}, A::Matrix{Tv}) where {Tv}
     m, n = size(A)
     for j = 1:n
