@@ -1,9 +1,5 @@
 # Poisson
 
-using Distributions
-using Origin
-export poipmf!, poipmf, cpoipmf!, cpoipmf, rightbound
-
 """
 poipmf!(lambda, prob; left = 0, right = length(prob)-1+left)
 poipmf(lambda, right; left = 0)
@@ -98,7 +94,7 @@ function rightbound(lambda::Tv, q::Tv = Tv(1.0e-8))::Int where {Tv}
 end
 
 function rightbound(::Type{Ti}, lambda::Tv, q::Tv = Tv(1.0e-8))::Ti where {Tv, Ti}
-    z = Distributions.cquantile(Normal(), q)
+    z = cquantile(Normal(), q)
     if lambda < 3.0
         ll = exp(-lambda)
         total = ll

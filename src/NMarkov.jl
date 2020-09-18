@@ -3,15 +3,27 @@ module NMarkov
 # using LinearAlgebra
 # using Printf
 
-using SparseArrays: SparseMatrixCSC
-using SparseMatrix: SparseCSR, SparseCSC, SparseCOO, spdiag, nnz
-using Distributions: UnivariateDistribution, pdf
+using Origin: @origin
+using SparseArrays: SparseMatrixCSC, nnz
+using SparseMatrix: SparseCSR, SparseCSC, SparseCOO, spdiag
+using Distributions: UnivariateDistribution, pdf, cquantile, Normal, Poisson
 using Deformula: deint
 
+export @axpy, @scal, @dot
+export itime
+export poipmf!, poipmf, cpoipmf!, cpoipmf, rightbound
+export unifstep!, cunifstep!, convunifstep!
+
+export unif
+export gth!, gth
+export stsenguess, stsengs, stsenpower
+export stguess, stgs, stpower
+export qstgs, qstpower
+export mexp, mexpc
+export mexp, mexpmix, mexpc, mexpcmix
+
 include("_common.jl")
-
 include("_unif.jl")
-
 include("_gth.jl")
 include("_gsstep.jl")
 include("_stationary_iterative.jl")

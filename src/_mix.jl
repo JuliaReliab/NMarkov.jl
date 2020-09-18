@@ -2,8 +2,6 @@
 Mixed Matrix Exponential Function
 """
 
-export mexp, mexpmix, mexpc, mexpcmix
-
 """
 mexpmix(f, Q, x; bounds = (0, Inf), transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)
 mexp(Q, x, dist, bounds = (minimum(dist), maximum(dist)), transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)

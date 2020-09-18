@@ -2,8 +2,6 @@
 GTH algorithm
 """
 
-export gth!, gth
-
 """
 gth!(Q::Matrix{Tv})
 gth(Q::Matrix{Tv})
