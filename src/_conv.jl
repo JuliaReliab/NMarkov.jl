@@ -45,6 +45,17 @@ function _dger!(x::Array{Tv,1}, y::Array{Tv,1}, A::SparseCOO{Tv,Ti}) where {Ti,T
     nothing
 end
 
+function _dger!(x::Array{Tv,1}, y::Array{Tv,1}, A::SparseMatrixCSC{Tv,Ti}) where {Ti,Tv}
+    m, n = size(A)
+    for j = 1:n
+        for z = A.colptr[j]:A.colptr[j+1]-1
+            i = A.rowval[z]
+            A.nzval[z] += x[i] * y[j]
+        end
+    end
+    nothing
+end
+
 """
 convunifstep!(trQ, trH, P, poi, range, weight, qv_weight, x, y, z, H)
 

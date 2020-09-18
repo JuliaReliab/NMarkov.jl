@@ -1,5 +1,5 @@
 
-export Trans, NoTrans
+export Trans, NoTrans, AbstractTranspose
 export @axpy, @scal, @dot
 export itime
 

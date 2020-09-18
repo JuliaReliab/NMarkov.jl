@@ -23,7 +23,7 @@ function stguess(Q::MatT, ::Type{Tv} = Float64)::Vector{Tv} where {Tv,MatT}
 end
 
 """
-stgs(Q::SparseCSC{Tv,Ti}, x0::Vector{Tv}=stguess(Q,Tv); maxiter=5000, steps=20, reltol::Tv=Tv(1.0e-6))
+stgs(Q::SparseCSC{Tv,Ti}, x0::Vector{Tv}=stguess(Q,Tv); maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6))
 
 Get a stationary vector of CTMC.
 
@@ -32,7 +32,7 @@ Parameters:
 - x0: Initial vector for iteration
 - maxiter: The maximum number of iteration. The algorithm stops when the number of iteration becomes maxiter.
 - steps: The number of steps to check the convergence
-- reltol: the tolerance error. When the relative errors of two successive vectors with steps attains reltol, the algorithm stops.
+- rtol: the tolerance error. When the relative errors of two successive vectors with steps attains rtol, the algorithm stops.
 Return value:
 A tuple of
 - x: stationary vector
@@ -41,8 +41,13 @@ A tuple of
 - rerror: The relative error when the algorithm stops
 """
 
+function stgs(Q::SparseMatrixCSC{Tv,Ti}; x0::Vector{Tv}=stguess(Q,Tv),
+        maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
+    stgs(SparseCSC(Q), x0=x0, maxiter=maxiter, steps=steps, rtol=rtol)
+end
+
 function stgs(Q::SparseCSC{Tv,Ti}; x0::Vector{Tv}=stguess(Q,Tv),
-        maxiter=5000, steps=20, reltol::Tv=Tv(1.0e-6)) where {Tv,Ti}
+        maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
     m, n = size(Q)
     @assert m == n
     b = zeros(Tv, n)
@@ -59,7 +64,7 @@ function stgs(Q::SparseCSC{Tv,Ti}; x0::Vector{Tv}=stguess(Q,Tv),
         end
         rerror = maximum(abs.((x - prevx) ./ x))
         iter += steps
-        if rerror < reltol
+        if rerror < rtol
             conv = true
             break
         end
@@ -80,7 +85,7 @@ Parameters:
 - x0: Initial vector for iteration
 - maxiter: The maximum number of iteration. The algorithm stops when the number of iteration becomes maxiter.
 - steps: The number of steps to check the convergence
-- reltol: the tolerance error. When the relative errors of two successive vectors with steps attains reltol, the algorithm stops.
+- rtol: the tolerance error. When the relative errors of two successive vectors with steps attains rtol, the algorithm stops.
 Return value:
 A tuple of
 - x: stationary vector

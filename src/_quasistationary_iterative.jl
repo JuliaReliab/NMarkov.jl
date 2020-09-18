@@ -6,7 +6,7 @@ export qstgs, qstpower
 
 """
 qstgs(Q::SparseCSC{Tv,Ti}, xi::Vector{Tv};
-      x0::Vector{Tv}=stguess(Q,Tv), maxiter=5000, steps=20, reltol::Tv=Tv(1.0e-6))
+      x0::Vector{Tv}=stguess(Q,Tv), maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6))
 
 Get a quasi-stationary vector of CTMC.
 
@@ -16,7 +16,7 @@ Parameters:
 - x0: Initial vector for iteration
 - maxiter: The maximum number of iteration. The algorithm stops when the number of iteration becomes maxiter.
 - steps: The number of steps to check the convergence
-- reltol: the tolerance error. When the relative errors of two successive vectors with steps attains reltol, the algorithm stops.
+- rtol: the tolerance error. When the relative errors of two successive vectors with steps attains rtol, the algorithm stops.
 Return value:
 A tuple of
 - x: quasi-stationary vector
@@ -25,6 +25,11 @@ A tuple of
 - iter: The number of iterations
 - rerror: The relative error when the algorithm stops
 """
+
+function qstgs(Q::SparseMatrixCSC{Tv,Ti}, xi::Vector{Tv}; x0::Vector{Tv}=stguess(Q,Tv),
+        maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
+    qstgs(SparseCSC(Q), xi, x0=x0, maxiter=maxiter, steps=steps, rtol=rtol)
+end
 
 function qstgs(Q::SparseCSC{Tv,Ti}, xi::Vector{Tv}; x0::Vector{Tv}=stguess(Q,Tv),
         maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
@@ -68,7 +73,7 @@ Parameters:
 - x0: Initial vector for iteration
 - maxiter: The maximum number of iteration. The algorithm stops when the number of iteration becomes maxiter.
 - steps: The number of steps to check the convergence
-- reltol: the tolerance error. When the relative errors of two successive vectors with steps attains reltol, the algorithm stops.
+- rtol: the tolerance error. When the relative errors of two successive vectors with steps attains rtol, the algorithm stops.
 Return value:
 A tuple of
 - x: quasi-stationary vector
