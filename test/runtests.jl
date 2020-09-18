@@ -273,11 +273,11 @@ end
     @test res0 ≈ res4
     @test res0 ≈ res5
     res0 = exp(Q'*t) * x0
-    res1 = mexp(Q, x0, t, transpose=Trans())
-    res2 = mexp(SparseCSR(Q), x0, t, transpose=Trans())
-    res3 = mexp(SparseCSC(Q), x0, t, transpose=Trans())
-    res4 = mexp(SparseCOO(Q), x0, t, transpose=Trans())
-    res5 = mexp(SparseMatrixCSC(Q), x0, t, transpose=Trans())
+    res1 = mexp(Q, x0, t, transpose=:T)
+    res2 = mexp(SparseCSR(Q), x0, t, transpose=:T)
+    res3 = mexp(SparseCSC(Q), x0, t, transpose=:T)
+    res4 = mexp(SparseCOO(Q), x0, t, transpose=:T)
+    res5 = mexp(SparseMatrixCSC(Q), x0, t, transpose=:T)
     @test res0 ≈ res1
     @test res0 ≈ res2
     @test res0 ≈ res3
@@ -337,11 +337,11 @@ end
         zeros(3,2)
     ]
     res0 = exp(Qdash*t) * x0dash
-    res1 = mexpc(Q, x0, t, transpose=Trans())
-    res2 = mexpc(SparseCSR(Q), x0, t, transpose=Trans())
-    res3 = mexpc(SparseCSC(Q), x0, t, transpose=Trans())
-    res4 = mexpc(SparseCOO(Q), x0, t, transpose=Trans())
-    res5 = mexpc(SparseMatrixCSC(Q), x0, t, transpose=Trans())
+    res1 = mexpc(Q, x0, t, transpose=:T)
+    res2 = mexpc(SparseCSR(Q), x0, t, transpose=:T)
+    res3 = mexpc(SparseCSC(Q), x0, t, transpose=:T)
+    res4 = mexpc(SparseCOO(Q), x0, t, transpose=:T)
+    res5 = mexpc(SparseMatrixCSC(Q), x0, t, transpose=:T)
     @test res0[1:3,1:2] ≈ res1[1]
     @test res0[1:3,1:2] ≈ res2[1]
     @test res0[1:3,1:2] ≈ res3[1]
@@ -379,16 +379,16 @@ end
     @test res0 ≈ res5
     @time res0 = [exp(Q'*t) * x0 for t = ts]
     @time res0 = [exp(Q'*t) * x0 for t = ts]
-    @time res1 = mexp(Q, x0, ts, transpose=Trans())
-    @time res1 = mexp(Q, x0, ts, transpose=Trans())
-    @time res2 = mexp(SparseCSR(Q), x0, ts, transpose=Trans())
-    @time res2 = mexp(SparseCSR(Q), x0, ts, transpose=Trans())
-    @time res3 = mexp(SparseCSC(Q), x0, ts, transpose=Trans())
-    @time res3 = mexp(SparseCSC(Q), x0, ts, transpose=Trans())
-    @time res4 = mexp(SparseCOO(Q), x0, ts, transpose=Trans())
-    @time res4 = mexp(SparseCOO(Q), x0, ts, transpose=Trans())
-    @time res5 = mexp(SparseMatrixCSC(Q), x0, ts, transpose=Trans())
-    @time res5 = mexp(SparseMatrixCSC(Q), x0, ts, transpose=Trans())
+    @time res1 = mexp(Q, x0, ts, transpose=:T)
+    @time res1 = mexp(Q, x0, ts, transpose=:T)
+    @time res2 = mexp(SparseCSR(Q), x0, ts, transpose=:T)
+    @time res2 = mexp(SparseCSR(Q), x0, ts, transpose=:T)
+    @time res3 = mexp(SparseCSC(Q), x0, ts, transpose=:T)
+    @time res3 = mexp(SparseCSC(Q), x0, ts, transpose=:T)
+    @time res4 = mexp(SparseCOO(Q), x0, ts, transpose=:T)
+    @time res4 = mexp(SparseCOO(Q), x0, ts, transpose=:T)
+    @time res5 = mexp(SparseMatrixCSC(Q), x0, ts, transpose=:T)
+    @time res5 = mexp(SparseMatrixCSC(Q), x0, ts, transpose=:T)
     @test res0 ≈ res1
     @test res0 ≈ res2
     @test res0 ≈ res3
@@ -455,16 +455,16 @@ end
     ]
     @time res0 = ([(exp(Qdash*t) * x0dash)[1:3,1:2] for t = ts], [(exp(Qdash*t) * x0dash)[4:6,1:2] for t = ts])
     @time res0 = ([(exp(Qdash*t) * x0dash)[1:3,1:2] for t = ts], [(exp(Qdash*t) * x0dash)[4:6,1:2] for t = ts])
-    @time res1 = mexpc(Q, x0, ts, transpose=Trans())
-    @time res1 = mexpc(Q, x0, ts, transpose=Trans())
-    @time res2 = mexpc(SparseCSR(Q), x0, ts, transpose=Trans())
-    @time res2 = mexpc(SparseCSR(Q), x0, ts, transpose=Trans())
-    @time res3 = mexpc(SparseCSC(Q), x0, ts, transpose=Trans())
-    @time res3 = mexpc(SparseCSC(Q), x0, ts, transpose=Trans())
-    @time res4 = mexpc(SparseCOO(Q), x0, ts, transpose=Trans())
-    @time res4 = mexpc(SparseCOO(Q), x0, ts, transpose=Trans())
-    @time res5 = mexpc(SparseMatrixCSC(Q), x0, ts, transpose=Trans())
-    @time res5 = mexpc(SparseMatrixCSC(Q), x0, ts, transpose=Trans())
+    @time res1 = mexpc(Q, x0, ts, transpose=:T)
+    @time res1 = mexpc(Q, x0, ts, transpose=:T)
+    @time res2 = mexpc(SparseCSR(Q), x0, ts, transpose=:T)
+    @time res2 = mexpc(SparseCSR(Q), x0, ts, transpose=:T)
+    @time res3 = mexpc(SparseCSC(Q), x0, ts, transpose=:T)
+    @time res3 = mexpc(SparseCSC(Q), x0, ts, transpose=:T)
+    @time res4 = mexpc(SparseCOO(Q), x0, ts, transpose=:T)
+    @time res4 = mexpc(SparseCOO(Q), x0, ts, transpose=:T)
+    @time res5 = mexpc(SparseMatrixCSC(Q), x0, ts, transpose=:T)
+    @time res5 = mexpc(SparseMatrixCSC(Q), x0, ts, transpose=:T)
     @test res0[1] ≈ res1[1]
     @test res0[1] ≈ res2[1]
     @test res0[1] ≈ res3[1]
@@ -558,7 +558,7 @@ end
         weight, poi = poipmf(qv*tau, right, left = 0)
         z = zeros(3)
         H = zero(Q)
-        convunifstep!(NoTrans(), NoTrans(),
+        convunifstep!(:N, :N,
             P, poi, (0, right), weight, qv * weight, copy(x), y, z, H)
         @test z ≈ z0
         @test X[1:3,4:6] ≈ H
@@ -568,7 +568,7 @@ end
         weight, poi = poipmf(qv*tau, right, left = 0)
         z = zeros(3)
         H = zero(P)
-        convunifstep!(NoTrans(), NoTrans(),
+        convunifstep!(:N, :N,
             P, poi, (0, right), weight, qv * weight, copy(x), y, z, H)
         @test z ≈ z0
         for i = 1:3
@@ -583,7 +583,7 @@ end
         weight, poi = poipmf(qv*tau, right, left = 0)
         z = zeros(3)
         H = zero(P)
-        convunifstep!(NoTrans(), NoTrans(),
+        convunifstep!(:N, :N,
             P, poi, (0, right), weight, qv * weight, copy(x), y, z, H)
         @test z ≈ z0
         for j = 1:3
@@ -598,7 +598,7 @@ end
         weight, poi = poipmf(qv*tau, right, left = 0)
         z = zeros(3)
         H = zero(P)
-        convunifstep!(NoTrans(), NoTrans(),
+        convunifstep!(:N, :N,
             P, poi, (0, right), weight, qv * weight, copy(x), y, z, H)
         @test z ≈ z0
         for z = 1:nnz(H)
@@ -612,7 +612,7 @@ end
         weight, poi = poipmf(qv*tau, right, left = 0)
         z = zeros(3)
         H = zero(P)
-        convunifstep!(NoTrans(), NoTrans(),
+        convunifstep!(:N, :N,
             P, poi, (0, right), weight, qv * weight, copy(x), y, z, H)
         @test z ≈ z0
         for j = 1:3
@@ -645,7 +645,7 @@ end
         weight, poi = poipmf(qv*tau, right, left = 0)
         z = zeros(3)
         H = zero(Q)
-        convunifstep!(NoTrans(), Trans(),
+        convunifstep!(:N, :T,
             P, poi, (0, right), weight, qv * weight, x, y, z, H)
         @test z ≈ z0
         @test X[1:3,4:6]' ≈ H
@@ -673,7 +673,7 @@ end
         weight, poi = poipmf(qv*tau, right, left = 0)
         z = zeros(3)
         H = zero(Q)
-        convunifstep!(Trans(), NoTrans(),
+        convunifstep!(:T, :N,
             P, poi, (0, right), weight, qv * weight, x, y, z, H)
         @test z ≈ z0
         @test X[1:3,4:6] ≈ H
@@ -701,7 +701,7 @@ end
         weight, poi = poipmf(qv*tau, right, left = 0)
         z = zeros(3)
         H = zero(Q)
-        convunifstep!(Trans(), Trans(),
+        convunifstep!(:T, :T,
             P, poi, (0, right), weight, qv * weight, x, y, z, H)
         @test z ≈ z0
         @test X[1:3,4:6]' ≈ H

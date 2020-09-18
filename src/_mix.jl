@@ -5,8 +5,8 @@ Mixed Matrix Exponential Function
 export mexp, mexpmix, mexpc, mexpcmix
 
 """
-mexpmix(f, Q, x; bounds = (0, Inf), transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
-mexp(Q, x, dist, bounds = (minimum(dist), maximum(dist)), transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
+mexpmix(f, Q, x; bounds = (0, Inf), transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)
+mexp(Q, x, dist, bounds = (minimum(dist), maximum(dist)), transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)
 
 Compute the probability vector for CTMC mixed with dist
 
@@ -29,15 +29,15 @@ Return value:
 """
 
 function mexpmix(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
-    bounds = (Tv(0.0), Tv(Inf)), transpose::AbstractTranspose = NoTrans(),
-    ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    bounds=(Tv(0.0), Tv(Inf)), transpose::Symbol=:N,
+    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
     m, n = size(Q)
     @assert m == n
     de = deint(f, bounds[1], bounds[2])
     dt, maxt = itime(de.x)
     P, qv = unif(Q, ufact)
     right = rightbound(qv*maxt, eps)
-    @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
+    @assert right <= rmax "Time interval is too large. rmax should be changed: right = $right (rmax: $rmax)."
     prob = Vector{Tv}(undef, right+1)
     y0, y1 = copy(x), similar(x)
     result = zero(x)
@@ -54,16 +54,16 @@ function mexpmix(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
 end
 
 function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, dist::UnivariateDistribution;
-    bounds = (minimum(dist), maximum(dist)), transpose::AbstractTranspose = NoTrans(),
-    ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    bounds=(minimum(dist), maximum(dist)), transpose::Symbol=:N,
+    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
     mexpmix(Q, x, bounds=bounds, transpose=transpose, ufact=ufact, eps=eps, rmax=rmax) do x
         pdf(dist, x)
     end
 end
 
 """
-mexpcmix(f, Q, x; bounds = (0, Inf), transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
-mexpc(Q, x, dist, bounds = (minimum(dist), maximum(dist)), transpose = NoTrans(), ufact = 1.01, eps = 1.0e-8, rmax = 500)
+mexpcmix(f, Q, x; bounds = (0, Inf), transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)
+mexpc(Q, x, dist, bounds = (minimum(dist), maximum(dist)), transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)
 
 Compute the probability vector for CTMC and the cumulative value for time series.
 Compute the probability vector for CTMC and the cumulative value which are mixed with dist
@@ -88,15 +88,15 @@ Return value (tuple)
 """
 
 function mexpcmix(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
-    bounds = (Tv(0.0), Tv(Inf)), transpose::AbstractTranspose = NoTrans(),
-    ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    bounds=(Tv(0.0), Tv(Inf)), transpose::Symbol=:N,
+    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
     m, n = size(Q)
     @assert m == n
     de = deint(f, bounds[1], bounds[2])
     dt, maxt = itime(de.x)
     P, qv = unif(Q, ufact)
     right = rightbound(qv*maxt, eps) + 1
-    @assert right <= rmax "Time interval is too large: right = $right (rmax: $rmax)."
+    @assert right <= rmax "Time interval is too large. rmax should be changed: right = $right (rmax: $rmax)."
     prob = Vector{Tv}(undef, right+1)
     cprob = Vector{Tv}(undef, right+1)
     y0, y1 = copy(x), similar(x)
@@ -120,8 +120,8 @@ function mexpcmix(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
 end
 
 function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, dist::UnivariateDistribution;
-    bounds = (minimum(dist), maximum(dist)), transpose::AbstractTranspose = NoTrans(),
-    ufact::Tv = Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    bounds = (minimum(dist), maximum(dist)), transpose::Symbol=:N,
+    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
     mexpcmix(Q, x, bounds=bounds, transpose=transpose, ufact=ufact, eps=eps, rmax=rmax) do x
         pdf(dist, x)
     end
