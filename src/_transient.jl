@@ -2,8 +2,6 @@
 Transient analysis for CTMC
 """
 
-export mexp, mexpc
-
 """
 mexp(Q, x, t; transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)
 

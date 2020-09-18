@@ -5,6 +5,8 @@ using Distributions
 using SparseMatrix
 using SparseArrays
 
+import NMarkov: rightbound, poipmf, cpoipmf, convunifstep!
+
 @testset "PoissonRight" begin
     for q in [1.0e-6, 1.0e-7, 1.0e-8, 1.0e-9, 1.0e-10, 1.0e-11, 1.0e-12]
         for lambda in [0.01, 0.1, 1.0, 10.0, 100.0, 10000.0, 100000.0, 1000000.0]
