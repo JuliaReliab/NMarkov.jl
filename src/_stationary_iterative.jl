@@ -3,8 +3,6 @@
 Stationary vector with iterative methods
 """
 
-export stguess, stgs, stpower
-
 """
 stguess(Q::MatT, ::Type{Tv} = Float64)::Vector{Tv}
 

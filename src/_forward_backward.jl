@@ -2,11 +2,6 @@
 Fundamental computation for CTMC
 """
 
-using Origin
-
-export unifstep!
-export cunifstep!
-
 """
 unifstep!(tr, P, poi, range, weight, x, y)
 

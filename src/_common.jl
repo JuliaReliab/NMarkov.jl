@@ -1,7 +1,4 @@
 
-export @axpy, @scal, @dot
-export itime
-
 """
 @axpy
 @ascal

@@ -2,8 +2,6 @@
 Quasi-stationary vector with iterative methods
 """
 
-export qstgs, qstpower
-
 """
 qstgs(Q::SparseCSC{Tv,Ti}, xi::Vector{Tv};
       x0::Vector{Tv}=stguess(Q,Tv), maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6))

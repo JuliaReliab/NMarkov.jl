@@ -2,8 +2,6 @@
 Uniformed Matrix for CTMC
 """
 
-export unif
-
 macro unif(Q, ufact)
     expr = quote
         qv = maximum(abs.(spdiag($Q))) * $ufact

@@ -3,8 +3,6 @@
 Sensitivity vector with iterative methods
 """
 
-export stsenguess, stsengs, stsenpower
-
 """
 stsenguess(Q::MatT, ::Type{Tv} = Float64)::Vector{Tv}
 
