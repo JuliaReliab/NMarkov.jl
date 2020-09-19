@@ -26,9 +26,9 @@ Return value:
 - probability vector
 """
 
-function mexpmix(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
+function mexpmix(f::Any, Q::AbstractMatrix{Tv}, x::ArrayT;
     bounds=(Tv(0.0), Tv(Inf)), transpose::Symbol=:N,
-    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
     m, n = size(Q)
     @assert m == n
     de = deint(f, bounds[1], bounds[2])
@@ -51,9 +51,9 @@ function mexpmix(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
     return result
 end
 
-function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, dist::UnivariateDistribution;
+function mexp(Q::AbstractMatrix{Tv}, x::ArrayT, dist::UnivariateDistribution;
     bounds=(minimum(dist), maximum(dist)), transpose::Symbol=:N,
-    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
     mexpmix(Q, x, bounds=bounds, transpose=transpose, ufact=ufact, eps=eps, rmax=rmax) do x
         pdf(dist, x)
     end
@@ -85,9 +85,9 @@ Return value (tuple)
 - cumulative value
 """
 
-function mexpcmix(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
+function mexpcmix(f::Any, Q::AbstractMatrix{Tv}, x::ArrayT;
     bounds=(Tv(0.0), Tv(Inf)), transpose::Symbol=:N,
-    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
     m, n = size(Q)
     @assert m == n
     de = deint(f, bounds[1], bounds[2])
@@ -117,9 +117,9 @@ function mexpcmix(f::Any, Q::AbstractMatrix{Tv}, x::Array{Tv,N};
     return result, cresult
 end
 
-function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, dist::UnivariateDistribution;
+function mexpc(Q::AbstractMatrix{Tv}, x::ArrayT, dist::UnivariateDistribution;
     bounds = (minimum(dist), maximum(dist)), transpose::Symbol=:N,
-    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
     mexpcmix(Q, x, bounds=bounds, transpose=transpose, ufact=ufact, eps=eps, rmax=rmax) do x
         pdf(dist, x)
     end

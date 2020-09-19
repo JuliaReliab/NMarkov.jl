@@ -1,7 +1,7 @@
 name = "NMarkov"
 uuid = "c5cca998-98d3-11ea-1288-bb4300628a81"
 authors = ["Hiroyuki Okamura"]
-version = "0.2.0"
+version = "0.3.0"
 
 [deps]
 Deformula = "92955551-dcbb-4ab3-ac34-b1f61f738b48"

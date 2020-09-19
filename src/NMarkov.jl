@@ -16,6 +16,7 @@ export stguess, stgs, stpower
 export qstgs, qstpower
 export mexp, mexpc
 export mexp, mexpmix, mexpc, mexpcmix
+export tran
 
 include("_common.jl")
 include("_unif.jl")
@@ -27,6 +28,7 @@ include("_quasistationary_iterative.jl")
 
 include("_poisson.jl")
 include("_forward_backward.jl")
+include("_mexp.jl")
 include("_transient.jl")
 
 include("_mix.jl")

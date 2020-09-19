@@ -3,140 +3,37 @@ Transient analysis for CTMC
 """
 
 """
-mexp(Q, x, t; transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)
+tran(Q, x, r, ts; forward = :T, ufact = 1.01, eps = 1.0e-8, rmax = 500)
 
-Compute the probability vector for CTMC.
+Compute the instantaneous and cumulative rewards for CTMC on time series.
 
-exp(tr(Q)*t) * x
-
-Parameters:
-- Q: CTMC Kernel
-- x: Array
-- t: time
-- transpose: forward or backward
-- ufact: uniformization factor
-- eps: tolerance error for Poisson p.m.f.
-- rmax: The maximum number of uniformization steps
-
-Return value:
-- probability vector
-"""
-
-function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, t::Tv;
-    transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
-    m, n = size(Q)
-    @assert m == n
-    P, qv = unif(Q, ufact)
-    right = rightbound(qv*t, eps)
-    @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
-    weight, poi = poipmf(qv*t, right, left = 0)
-    y = zero(x)
-    unifstep!(transpose, P, poi, (0, right), weight, copy(x), y)
-    return y
-end
-
-"""
-mexpc(Q, x, t; transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)
-
-Compute the probability vector for CTMC and the cumulative value.
-
-exp(tr(Q)*t) * x
-int_0^t exp(tr(Q)*u) * x du
+instantaneous reward: x * exp(Q*t) * r for t = ts
+cumulative reward: x * int_0^t exp(Q*u) * r du for t = ts
 
 Parameters:
 - Q: CTMC Kernel
-- x: Array
-- t: time
-- transpose: forward or backward
+- x: initial vector.
+- r: reward vector.
+- ts: time series
+- forward: forward or backward
 - ufact: uniformization factor
 - eps: tolerance error for Poisson p.m.f.
 - rmax: The maximum number of uniformization steps
 
 Return value (tuple)
-- probability vector
-- cumulative value
+- instantaneous reward
+- cumulative reward
+- probability vector at the last time (forward is :T)
+- reward vector at the initial time (forward is :N)
 """
 
-function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, t::Tv;
-    transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
-    m, n = size(Q)
-    @assert m == n
-    P, qv = unif(Q, ufact)
-    right = rightbound(qv*t, eps) + 1
-    @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
-    weight, poi, cpoi = cpoipmf(qv*t, right, left = 0)
-    y = zero(x)
-    cy = zero(x)
-    cunifstep!(transpose, P, poi, cpoi, (0, right), weight, qv*weight, copy(x), y, cy)
-    return y, cy
+function tran(Q::AbstractMatrix{Tv}, x::ArrayT1, r::ArrayT2, ts::AbstractVector{Tv};
+    forward::Symbol=:T, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT1<:AbstractArray{Tv},ArrayT2<:AbstractArray{Tv}}
+    _tran(Q, x, r, ts, Val{forward}, ufact, eps, rmax)
 end
 
-"""
-mexp(Q, x, ts; transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)
-
-Compute the probability vector for CTMC for time series
-
-exp(tr(Q)*t) * x for t = ts
-
-Parameters:
-- Q: CTMC Kernel
-- x: Array
-- ts: time series
-- transpose: forward or backward
-- ufact: uniformization factor
-- eps: tolerance error for Poisson p.m.f.
-- rmax: The maximum number of uniformization steps
-
-Return value:
-- probability vector
-"""
-
-function mexp(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, ts::AbstractVector{Tv};
-    transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
-    m, n = size(Q)
-    @assert m == n
-    dt, maxt = itime(sort(ts))
-    P, qv = unif(Q, ufact)
-    right = rightbound(qv*maxt, eps)
-    @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
-    prob = Vector{Tv}(undef, right+1)
-    result = Vector{Array{Tv,N}}(undef, length(dt))
-    y0 = copy(x)
-    for k = eachindex(dt)
-        right = rightbound(qv*dt[k], eps)
-        weight = poipmf!(qv*dt[k], prob; left=0, right=right)
-        y1 = zero(y0)
-        unifstep!(transpose, P, prob, (0, right), weight, y0, y1)
-        result[k] = y1
-        y0 .= y1
-    end
-    return result
-end
-
-"""
-mexpc(Q, x, ts; transpose = :N, ufact = 1.01, eps = 1.0e-8, rmax = 500)
-
-Compute the probability vector for CTMC and the cumulative value for time series.
-
-exp(tr(Q)*t) * x for t = ts
-int_0^t exp(tr(Q)*u) * x du for t = ts
-
-Parameters:
-- Q: CTMC Kernel
-- x: Array
-- ts: time series
-- transpose: forward or backward
-- ufact: uniformization factor
-- eps: tolerance error for Poisson p.m.f.
-- rmax: The maximum number of uniformization steps
-
-Return value (tuple)
-- probability vector
-- cumulative value
-"""
-
-function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, ts::AbstractVector{Tv};
-    transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,N}
+function _tran(Q::AbstractMatrix{Tv}, x::Array{Tv,1}, r::Array{Tv,1}, ts::AbstractVector{Tv},
+    ::Type{Val{:T}}, ufact::Tv, eps::Tv, rmax) where Tv
     m, n = size(Q)
     @assert m == n
     dt, maxt = itime(ts)
@@ -145,22 +42,143 @@ function mexpc(Q::AbstractMatrix{Tv}, x::Array{Tv,N}, ts::AbstractVector{Tv};
     @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
     prob = Vector{Tv}(undef, right+1)
     cprob = Vector{Tv}(undef, right+1)
-    result = Vector{Array{Tv,N}}(undef, length(dt))
-    cresult = Vector{Array{Tv,N}}(undef, length(dt))
+    result = Vector{Tv}(undef, length(dt))
+    cresult = Vector{Tv}(undef, length(dt))
     y0 = copy(x)
+    y1 = similar(x)
     cy = zero(x)
     tmp = similar(x)
     for k = eachindex(dt)
         right = rightbound(qv*dt[k], eps) + 1
         weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
-        y1 = zero(y0)
+        y1 .= Tv(0)
         tmp .= Tv(0)
-        cunifstep!(transpose, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
+        cunifstep!(:T, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
         cy .+= tmp
-        result[k] = copy(y1)
-        cresult[k] = copy(cy)
+        result[k] = @dot(y1, r)
+        cresult[k] = @dot(cy, r)
         y0 .= y1
     end
-    return result, cresult
+    return result, cresult, y1, cy
 end
 
+function _tran(Q::AbstractMatrix{Tv}, x::Array{Tv,1}, r::Array{Tv,1}, ts::AbstractVector{Tv},
+    ::Type{Val{:N}}, ufact::Tv, eps::Tv, rmax) where Tv
+    m, n = size(Q)
+    @assert m == n
+    dt, maxt = itime(ts)
+    P, qv = unif(Q, ufact)
+    right = rightbound(qv*maxt, eps) + 1
+    @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
+    prob = Vector{Tv}(undef, right+1)
+    cprob = Vector{Tv}(undef, right+1)
+    result = Vector{Tv}(undef, length(dt))
+    cresult = Vector{Tv}(undef, length(dt))
+    y0 = copy(r)
+    y1 = similar(r)
+    cy = zero(r)
+    tmp = similar(r)
+    for k = eachindex(dt)
+        right = rightbound(qv*dt[k], eps) + 1
+        weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
+        y1 .= Tv(0)
+        tmp .= Tv(0)
+        cunifstep!(:N, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
+        cy .+= tmp
+        result[k] = @dot(x, y1)
+        cresult[k] = @dot(x, cy)
+        y0 .= y1
+    end
+    return result, cresult, y1, cy
+end
+
+function _tran(Q::AbstractMatrix{Tv}, x::Array{Tv,1}, r::ArrayT2, ts::AbstractVector{Tv},
+    ::Type{Val{:T}}, ufact::Tv, eps::Tv, rmax) where {Tv,ArrayT2<:AbstractArray{Tv}}
+    m, n = size(Q)
+    @assert m == n
+    dt, maxt = itime(ts)
+    P, qv = unif(Q, ufact)
+    right = rightbound(qv*maxt, eps) + 1
+    @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
+    prob = Vector{Tv}(undef, right+1)
+    cprob = Vector{Tv}(undef, right+1)
+    result = Vector{Any}(undef, length(dt))
+    cresult = Vector{Any}(undef, length(dt))
+    y0 = copy(x)
+    y1 = similar(x)
+    cy = zero(x)
+    tmp = similar(x)
+    for k = eachindex(dt)
+        right = rightbound(qv*dt[k], eps) + 1
+        weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
+        y1 .= Tv(0)
+        tmp .= Tv(0)
+        cunifstep!(:T, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
+        cy .+= tmp
+        result[k] = r' * y1
+        cresult[k] = r' * cy
+        y0 .= y1
+    end
+    return result, cresult, y1, cy
+end
+
+function _tran(Q::AbstractMatrix{Tv}, x::ArrayT1, r::ArrayT2, ts::AbstractVector{Tv},
+    ::Type{Val{:T}}, ufact::Tv, eps::Tv, rmax) where {Tv,ArrayT1<:AbstractArray{Tv},ArrayT2<:AbstractArray{Tv}}
+    m, n = size(Q)
+    @assert m == n
+    dt, maxt = itime(ts)
+    P, qv = unif(Q, ufact)
+    right = rightbound(qv*maxt, eps) + 1
+    @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
+    prob = Vector{Tv}(undef, right+1)
+    cprob = Vector{Tv}(undef, right+1)
+    xdash = x'
+    result = Vector{Any}(undef, length(dt))
+    cresult = Vector{Any}(undef, length(dt))
+    y0 = copy(xdash)
+    y1 = similar(xdash)
+    cy = zero(xdash)
+    tmp = similar(xdash)
+    for k = eachindex(dt)
+        right = rightbound(qv*dt[k], eps) + 1
+        weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
+        y1 .= Tv(0)
+        tmp .= Tv(0)
+        cunifstep!(:T, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
+        cy .+= tmp
+        result[k] = y1' * r
+        cresult[k] = cy' * r
+        y0 .= y1
+    end
+    return result, cresult, y1', cy'
+end
+
+function _tran(Q::AbstractMatrix{Tv}, x::ArrayT1, r::ArrayT2, ts::AbstractVector{Tv},
+    ::Type{Val{:N}}, ufact::Tv, eps::Tv, rmax) where {Tv,ArrayT1<:AbstractArray{Tv},ArrayT2<:AbstractArray{Tv}}
+    m, n = size(Q)
+    @assert m == n
+    dt, maxt = itime(ts)
+    P, qv = unif(Q, ufact)
+    right = rightbound(qv*maxt, eps) + 1
+    @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
+    prob = Vector{Tv}(undef, right+1)
+    cprob = Vector{Tv}(undef, right+1)
+    result = Vector{Any}(undef, length(dt))
+    cresult = Vector{Any}(undef, length(dt))
+    y0 = copy(r)
+    y1 = similar(r)
+    cy = zero(r)
+    tmp = similar(r)
+    for k = eachindex(dt)
+        right = rightbound(qv*dt[k], eps) + 1
+        weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
+        y1 .= Tv(0)
+        tmp .= Tv(0)
+        cunifstep!(:N, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
+        cy .+= tmp
+        result[k] = x * y1
+        cresult[k] = x * cy
+        y0 .= y1
+    end
+    return result, cresult, y1, cy
+end
