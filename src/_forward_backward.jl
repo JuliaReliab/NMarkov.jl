@@ -24,13 +24,13 @@ Return value: nothing
 
 function unifstep!(tr::Symbol, P::AbstractMatrix{Tv},
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv,
-    x::Array{Tv,N}, y::Array{Tv,N})::Nothing where {Ti,Tv,N}
+    x::ArrayT, y::ArrayT)::Nothing where {Ti,Tv,ArrayT<:AbstractArray{Tv}}
     _unifstep!(Val(tr), P, poi, range, weight, x, y)
 end
 
 @origin (poi => left) function _unifstep!(::Val{:T}, P::AbstractMatrix{Tv},
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv,
-    x::Array{Tv,N}, y::Array{Tv,N})::Nothing where {Ti,Tv,N}
+    x::ArrayT, y::ArrayT)::Nothing where {Ti,Tv,ArrayT<:AbstractArray{Tv}}
     left, right = range
     Pdash = P'
     @axpy(poi[left], x, y)
@@ -44,7 +44,7 @@ end
 
 @origin (poi => left) function _unifstep!(::Val{:N}, P::AbstractMatrix{Tv},
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv,
-    x::Array{Tv,N}, y::Array{Tv,N})::Nothing where {Ti,Tv,N}
+    x::ArrayT, y::ArrayT)::Nothing where {Ti,Tv,ArrayT<:AbstractArray{Tv}}
     left, right = range
     @axpy(poi[left], x, y)
     for i = left+1:right
@@ -81,13 +81,13 @@ Return value: nothing
 
 function cunifstep!(tr::Symbol, P::AbstractMatrix{Tv},
     poi::Vector{Tv}, cpoi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
-    x::Array{Tv,N}, y::Array{Tv,N}, cy::Array{Tv,N})::Nothing where {Ti,Tv,N}
+    x::ArrayT, y::ArrayT, cy::ArrayT)::Nothing where {Ti,Tv,ArrayT<:AbstractArray{Tv}}
     _cunifstep!(Val(tr), P, poi, cpoi, range, weight, qv_weight, x, y, cy)
 end
 
 @origin (poi => left, cpoi => left) function _cunifstep!(::Val{:T}, P::AbstractMatrix{Tv},
     poi::Vector{Tv}, cpoi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
-    x::Array{Tv,N}, y::Array{Tv,N}, cy::Array{Tv,N})::Nothing where {Ti,Tv,N}
+    x::ArrayT, y::ArrayT, cy::ArrayT)::Nothing where {Ti,Tv,ArrayT<:AbstractArray{Tv}}
     left, right = range
     Pdash = P'
     @axpy(poi[left], x, y)
@@ -104,7 +104,7 @@ end
 
 @origin (poi => left, cpoi => left) function _cunifstep!(::Val{:N}, P::AbstractMatrix{Tv},
     poi::Vector{Tv}, cpoi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
-    x::Array{Tv,N}, y::Array{Tv,N}, cy::Array{Tv,N})::Nothing where {Ti,Tv,N}
+    x::ArrayT, y::ArrayT, cy::ArrayT)::Nothing where {Ti,Tv,ArrayT<:AbstractArray{Tv}}
     left, right = range
     @axpy(poi[left], x, y)
     @axpy(cpoi[left], x, cy)
