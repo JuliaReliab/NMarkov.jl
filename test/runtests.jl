@@ -1096,3 +1096,28 @@ end
         @test abs(ans_cy[i] - cy[i]) < 1.0e-8
     end
 end
+
+@testset "zeromat" begin
+    Q = [0.0][:,:]
+    x0 = eye(1)
+    y = mexp(Q, x0, 1.0)
+    @test y == [1.0][:,:]
+    y, cy = mexpc(Q, x0, 10.0)
+    @test y == [1.0][:,:]
+    @test isapprox(cy, [10.0][:,:])
+end
+
+@testset "zeromat_mix" begin
+    Q = [0.0][:,:]
+    x0 = eye(1)
+    y = mexpmix(Q, x0) do t
+        exp(-t)
+    end
+    @test isapprox(y, [1.0][:,:])
+    y, cy = mexpcmix(Q, x0, bounds=(0.0, 10.0)) do t
+        exp(-t)
+    end
+    println(cy)
+    @test isapprox(y[1,1], 1-exp(-10.0))
+    @test isapprox(cy[1,1], (1-(1+10.0*1.0)*exp(-10.0*1.0))/1.0)
+end

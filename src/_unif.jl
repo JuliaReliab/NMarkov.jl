@@ -5,6 +5,9 @@ Uniformed Matrix for CTMC
 macro unif(Q, ufact)
     expr = quote
         qv = maximum(abs.(spdiag($Q))) * $ufact
+        if iszero(qv)
+            qv = 1.0e-12
+        end
         P = $Q / qv
         d = spdiag(P)
         d .+= 1
