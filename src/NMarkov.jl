@@ -9,6 +9,7 @@ using SparseMatrix: SparseCSR, SparseCSC, SparseCOO, spdiag
 using Distributions: UnivariateDistribution, pdf, cquantile, Normal
 using Deformula: deint
 
+export eye
 export unif
 export gth!, gth
 export stsenguess, stsengs, stsenpower
@@ -19,6 +20,7 @@ export mexp, mexpmix, mexpc, mexpcmix
 export tran
 
 include("_common.jl")
+include("_special_matrix.jl")
 include("_unif.jl")
 include("_gth.jl")
 include("_gsstep.jl")
