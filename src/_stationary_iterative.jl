@@ -60,7 +60,8 @@ function stgs(Q::SparseCSC{Tv,Ti}; x0::Vector{Tv}=stguess(Q,Tv),
             gsstep!(x, Q, b)
             x ./= sum(x)
         end
-        rerror = maximum(abs.((x - prevx) ./ x))
+        # rerror = maximum(abs.((x - prevx) ./ x))
+        rerror = maximum(abs.(x - prevx)) / maximum(x)
         iter += steps
         if rerror < rtol
             conv = true
@@ -108,7 +109,8 @@ function stpower(P::AbstractMatrix{Tv}; x0::Vector{Tv}=stguess(P,Tv),
             x = Pdash * x
             x ./= sum(x)
         end
-        rerror = maximum(abs.((x - prevx) ./ x))
+        # rerror = maximum(abs.((x - prevx) ./ x))
+        rerror = maximum(abs.(x - prevx)) / maximum(x)
         iter += steps
         if rerror < rtol
             conv = true

@@ -47,7 +47,8 @@ function qstgs(Q::SparseCSC{Tv,Ti}, xi::Vector{Tv}; x0::Vector{Tv}=stguess(Q,Tv)
             gsstep!(x, Q, b, sigma=-gam)
             x ./= sum(x)
         end
-        rerror = maximum(abs.((x - prevx) ./ x))
+        # rerror = maximum(abs.((x - prevx) ./ x))
+        rerror = maximum(abs.(x - prevx)) / maximum(x)
         iter += steps
         if rerror < rtol
             conv = true
@@ -97,7 +98,8 @@ function qstpower(P::AbstractMatrix{Tv}, xi::Vector{Tv};
             x = Pdash * x
             x ./= sum(x)
         end
-        rerror = maximum(abs.((x - prevx) ./ x))
+        # rerror = maximum(abs.((x - prevx) ./ x))
+        rerror = maximum(abs.(x - prevx)) / maximum(x)
         iter += steps
         if rerror < rtol
             conv = true
