@@ -1,6 +1,6 @@
 module NMarkov
 
-# using LinearAlgebra
+using LinearAlgebra: qr
 # using Printf
 
 using Origin: @origin
@@ -11,7 +11,7 @@ using Deformula: deint
 
 export eye
 export unif
-export gth!, gth
+export gth!, gth, stsen
 export stsenguess, stsengs, stsenpower
 export stguess, stgs, stpower
 export qstgs, qstpower
@@ -23,6 +23,7 @@ include("_common.jl")
 include("_special_matrix.jl")
 include("_unif.jl")
 include("_gth.jl")
+include("_stsen_dense.jl")
 include("_gsstep.jl")
 include("_stationary_iterative.jl")
 include("_sensitivity_iterative.jl")

@@ -13,37 +13,39 @@ Note that Q does not have any absorbing state.
 """
 
 function gth!(Q::Matrix{Tv})::Vector{Tv} where {Tv}
-    m, n = size(Q)
-    @assert m == n
-    for l = n:-1:2
-        tmp::Tv = 0
-        for u = 1:l-1
-            tmp += Q[l,u]
-        end
-        for j = 1:l-1
-            for i = 1:l-1
-                if i != j
-                    Q[i,j] += Q[l,j] * Q[i,l] / tmp
+    @inbounds begin
+        m, n = size(Q)
+        @assert m == n
+        for l = n:-1:2
+            tmp::Tv = 0
+            for u = 1:l-1
+                tmp += Q[l,u]
+            end
+            for j = 1:l-1
+                for i = 1:l-1
+                    if i != j
+                        Q[i,j] += Q[l,j] * Q[i,l] / tmp
+                    end
                 end
             end
+            for i = 1:l-1
+                Q[i,l] /= tmp
+            end
+            for i = 1:l-1
+                Q[l,i] = 0
+            end
+            Q[l,l] = -1
         end
-        for i = 1:l-1
-            Q[i,l] /= tmp
+        x = Vector{Tv}(undef, n)
+        x[1] = 1.0
+        for l = 2:n
+            x[l] = 0.0
+            for i = 1:l-1
+                x[l] += x[i] * Q[i,l]
+            end
         end
-        for i = 1:l-1
-            Q[l,i] = 0
-        end
-        Q[l,l] = -1
+        x /= sum(x)
     end
-    x = Vector{Tv}(undef, n)
-    x[1] = 1.0
-    for l = 2:n
-        x[l] = 0.0
-        for i = 1:l-1
-            x[l] += x[i] * Q[i,l]
-        end
-    end
-    x /= sum(x)
 end
 
 function gth(Q::Matrix{Tv}) where {Tv}

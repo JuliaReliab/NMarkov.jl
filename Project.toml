@@ -1,11 +1,12 @@
 name = "NMarkov"
 uuid = "c5cca998-98d3-11ea-1288-bb4300628a81"
 authors = ["Hiroyuki Okamura"]
-version = "0.3.2"
+version = "0.3.3"
 
 [deps]
 Deformula = "92955551-dcbb-4ab3-ac34-b1f61f738b48"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Origin = "421443cc-9b00-11ea-1646-3bac74f84b0c"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"

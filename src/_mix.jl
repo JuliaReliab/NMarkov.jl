@@ -39,7 +39,7 @@ function mexpmix(f::Any, Q::AbstractMatrix{Tv}, x::ArrayT;
     prob = Vector{Tv}(undef, right+1)
     y0, y1 = copy(x), similar(x)
     result = zero(x)
-    for i in eachindex(dt)
+    @inbounds for i in eachindex(dt)
         right = rightbound(qv*dt[i], eps)
         weight = poipmf!(qv*dt[i], prob; left=0, right=right)
         y1 .= Tv(0)
@@ -101,7 +101,7 @@ function mexpcmix(f::Any, Q::AbstractMatrix{Tv}, x::ArrayT;
     cy = zero(x)
     tmp = similar(x)
     result, cresult = zero(x), zero(x)
-    for i in eachindex(dt)
+    @inbounds for i in eachindex(dt)
         right = rightbound(qv*dt[i], eps) + 1
         weight = cpoipmf!(qv*dt[i], prob, cprob; left=0, right=right)
         tmp .= Tv(0)

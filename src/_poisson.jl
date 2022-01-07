@@ -15,36 +15,38 @@ The retuen value is the normalizing constant so that the total sum of `prob` is 
 
 @origin (prob => left) function poipmf!(lambda::Tv, prob::Vector{Tv};
     left::Ti = 0, right::Ti = length(prob)-1+left) where {Tv, Ti}
-    log2piOver2::Tv = log(2*pi) / 2
-    mode::Ti = floor(Ti, lambda)
-    if mode >= 1
-        prob[mode] = exp(-lambda + mode * log(lambda) 
-            - log2piOver2 - (mode + 1/2) * log(mode) + mode)
-    else
-        prob[mode] = exp(-lambda)
-    end
-    # down
-    for j = mode:-1:left+1
-        prob[j-1] = j / lambda * prob[j]
-    end
-    # up
-    for j = mode:right-1
-        prob[j+1] = lambda / (j+1) * prob[j]
-    end
-    # compute W
-    weight::Tv = 0
-    s::Ti = left
-    t::Ti = right
-    while s < t
-        if prob[s] <= prob[t]
-            weight += prob[s]
-            s += 1
+    @inbounds begin
+        log2piOver2::Tv = log(2*pi) / 2
+        mode::Ti = floor(Ti, lambda)
+        if mode >= 1
+            prob[mode] = exp(-lambda + mode * log(lambda) 
+                - log2piOver2 - (mode + 1/2) * log(mode) + mode)
         else
-            weight += prob[t]
-            t -= 1
+            prob[mode] = exp(-lambda)
         end
+        # down
+        for j = mode:-1:left+1
+            prob[j-1] = j / lambda * prob[j]
+        end
+        # up
+        for j = mode:right-1
+            prob[j+1] = lambda / (j+1) * prob[j]
+        end
+        # compute W
+        weight::Tv = 0
+        s::Ti = left
+        t::Ti = right
+        while s < t
+            if prob[s] <= prob[t]
+                weight += prob[s]
+                s += 1
+            else
+                weight += prob[t]
+                t -= 1
+            end
+        end
+        weight += prob[s]
     end
-    weight += prob[s]
 end
 
 function poipmf(lambda::Tv, right::Ti; left::Ti = 0) where {Tv, Ti}
@@ -68,11 +70,13 @@ The retuen value is the normalizing constant so that the total sum of `prob` is 
 
 @origin (prob => left, cprob => left) function cpoipmf!(lambda::Tv, prob::Vector{Tv}, cprob::Vector{Tv}; left::Ti = 0, right::Ti = length(prob)-1+left) where {Tv, Ti}
     weight::Tv = poipmf!(lambda, prob, left=left, right=right)
-    cprob[right] = 0
-    for k = right-1:-1:left
-        cprob[k] = cprob[k+1] + prob[k+1]
+    @inbounds begin
+        cprob[right] = 0
+        for k = right-1:-1:left
+            cprob[k] = cprob[k+1] + prob[k+1]
+        end
+        weight
     end
-    weight
 end
 
 function cpoipmf(lambda::Tv, right::Ti; left::Ti = 0) where {Tv, Ti}

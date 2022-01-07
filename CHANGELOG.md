@@ -1,3 +1,7 @@
+# NMarkov 0.3.3
+
+- add stsen; sensitivity vector for CTMC with QR
+
 # NMarkov 0.3.2
 
 - change the computation of rerror for iterative methods

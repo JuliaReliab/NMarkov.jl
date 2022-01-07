@@ -48,7 +48,7 @@ function _tran(Q::AbstractMatrix{Tv}, x::Array{Tv,1}, r::Array{Tv,1}, ts::Abstra
     y1 = similar(x)
     cy = zero(x)
     tmp = similar(x)
-    for k = eachindex(dt)
+    @inbounds for k = eachindex(dt)
         right = rightbound(qv*dt[k], eps) + 1
         weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
         y1 .= Tv(0)
@@ -78,7 +78,7 @@ function _tran(Q::AbstractMatrix{Tv}, x::Array{Tv,1}, r::Array{Tv,1}, ts::Abstra
     y1 = similar(r)
     cy = zero(r)
     tmp = similar(r)
-    for k = eachindex(dt)
+    @inbounds for k = eachindex(dt)
         right = rightbound(qv*dt[k], eps) + 1
         weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
         y1 .= Tv(0)
@@ -108,7 +108,7 @@ function _tran(Q::AbstractMatrix{Tv}, x::Array{Tv,1}, r::ArrayT2, ts::AbstractVe
     y1 = similar(x)
     cy = zero(x)
     tmp = similar(x)
-    for k = eachindex(dt)
+    @inbounds for k = eachindex(dt)
         right = rightbound(qv*dt[k], eps) + 1
         weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
         y1 .= Tv(0)
@@ -139,7 +139,7 @@ function _tran(Q::AbstractMatrix{Tv}, x::ArrayT1, r::ArrayT2, ts::AbstractVector
     y1 = similar(xdash)
     cy = zero(xdash)
     tmp = similar(xdash)
-    for k = eachindex(dt)
+    @inbounds for k = eachindex(dt)
         right = rightbound(qv*dt[k], eps) + 1
         weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
         y1 .= Tv(0)
@@ -169,7 +169,7 @@ function _tran(Q::AbstractMatrix{Tv}, x::ArrayT1, r::ArrayT2, ts::AbstractVector
     y1 = similar(r)
     cy = zero(r)
     tmp = similar(r)
-    for k = eachindex(dt)
+    @inbounds for k = eachindex(dt)
         right = rightbound(qv*dt[k], eps) + 1
         weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
         y1 .= Tv(0)

@@ -4,7 +4,7 @@ Convolution for CTMC
 
 function _dger!(x::Array{Tv,1}, y::Array{Tv,1}, A::Matrix{Tv}) where {Tv}
     m, n = size(A)
-    for j = 1:n
+    @inbounds for j = 1:n
         for i = 1:m
             A[i,j] += x[i] * y[j]
         end
@@ -14,7 +14,7 @@ end
 
 function _dger!(x::Array{Tv,1}, y::Array{Tv,1}, A::SparseCSR{Tv,Ti}) where {Ti,Tv}
     m, n = size(A)
-    for i = 1:m
+    @inbounds for i = 1:m
         for z = A.rowptr[i]:A.rowptr[i+1]-1
             j = A.colind[z]
             A.val[z] += x[i] * y[j]
@@ -25,7 +25,7 @@ end
 
 function _dger!(x::Array{Tv,1}, y::Array{Tv,1}, A::SparseCSC{Tv,Ti}) where {Ti,Tv}
     m, n = size(A)
-    for j = 1:n
+    @inbounds for j = 1:n
         for z = A.colptr[j]:A.colptr[j+1]-1
             i = A.rowind[z]
             A.val[z] += x[i] * y[j]
@@ -35,7 +35,7 @@ function _dger!(x::Array{Tv,1}, y::Array{Tv,1}, A::SparseCSC{Tv,Ti}) where {Ti,T
 end
 
 function _dger!(x::Array{Tv,1}, y::Array{Tv,1}, A::SparseCOO{Tv,Ti}) where {Ti,Tv}
-    for z = 1:nnz(A)
+    @inbounds for z = 1:nnz(A)
         i = A.rowind[z]
         j = A.colind[z]
         A.val[z] += x[i] * y[j]
@@ -45,7 +45,7 @@ end
 
 function _dger!(x::Array{Tv,1}, y::Array{Tv,1}, A::SparseMatrixCSC{Tv,Ti}) where {Ti,Tv}
     m, n = size(A)
-    for j = 1:n
+    @inbounds for j = 1:n
         for z = A.colptr[j]:A.colptr[j+1]-1
             i = A.rowval[z]
             A.nzval[z] += x[i] * y[j]
@@ -99,26 +99,28 @@ end
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N}, z::Array{Tv,N},
     H::AbstractMatrix{Tv})::Nothing where {Ti,Tv,N}
-    left, right = range
-    Pdash = P'
-    vc = Vector{Vector{Tv}}(undef, right - left + 1)
-    vc[right] = zero(x)
-    @axpy(poi[right], y, vc[right])
-    for l = right-1:-1:left+1
-        vc[l] = Pdash * vc[l+1]
-        @axpy(poi[l], y, vc[l])
-    end
+    @inbounds begin
+        left, right = range
+        Pdash = P'
+        vc = Vector{Vector{Tv}}(undef, right - left + 1)
+        vc[right] = zero(x)
+        @axpy(poi[right], y, vc[right])
+        for l = right-1:-1:left+1
+            vc[l] = Pdash * vc[l+1]
+            @axpy(poi[l], y, vc[l])
+        end
 
-    @axpy(poi[left], x, z)
-    _dger!(x, vc[left+1], H)
-    for l = left+1:right-1
-        x .= P * x
-        @axpy(poi[l], x, z)
-        _dger!(x, vc[l+1], H)
+        @axpy(poi[left], x, z)
+        _dger!(x, vc[left+1], H)
+        for l = left+1:right-1
+            x .= P * x
+            @axpy(poi[l], x, z)
+            _dger!(x, vc[l+1], H)
+        end
+        @scal(1/weight, z)
+        @scal(1/qv_weight, H)
+        nothing
     end
-    @scal(1/weight, z)
-    @scal(1/qv_weight, H)
-    nothing
 end
 
 @origin (vc => left, poi => left) function _convunifstep!(::Val{:T}, ::Val{:N},
@@ -126,26 +128,28 @@ end
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N}, z::Array{Tv,N},
     H::AbstractMatrix{Tv})::Nothing where {Ti,Tv,N}
-    left, right = range
-    Pdash = P'
-    vc = Vector{Vector{Tv}}(undef, right - left + 1)
-    vc[right] = zero(x)
-    @axpy(poi[right], y, vc[right])
-    for l = right-1:-1:left+1
-        vc[l] = P * vc[l+1]
-        @axpy(poi[l], y, vc[l])
-    end
+    @inbounds begin
+        left, right = range
+        Pdash = P'
+        vc = Vector{Vector{Tv}}(undef, right - left + 1)
+        vc[right] = zero(x)
+        @axpy(poi[right], y, vc[right])
+        for l = right-1:-1:left+1
+            vc[l] = P * vc[l+1]
+            @axpy(poi[l], y, vc[l])
+        end
 
-    @axpy(poi[left], x, z)
-    _dger!(x, vc[left+1], H)
-    for l = left+1:right-1
-        x .= Pdash * x
-        @axpy(poi[l], x, z)
-        _dger!(x, vc[l+1], H)
+        @axpy(poi[left], x, z)
+        _dger!(x, vc[left+1], H)
+        for l = left+1:right-1
+            x .= Pdash * x
+            @axpy(poi[l], x, z)
+            _dger!(x, vc[l+1], H)
+        end
+        @scal(1/weight, z)
+        @scal(1/qv_weight, H)
+        nothing
     end
-    @scal(1/weight, z)
-    @scal(1/qv_weight, H)
-    nothing
 end
 
 @origin (vc => left, poi => left) function _convunifstep!(::Val{:N}, ::Val{:T},
@@ -153,26 +157,28 @@ end
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N}, z::Array{Tv,N},
     H::AbstractMatrix{Tv})::Nothing where {Ti,Tv,N}
-    left, right = range
-    Pdash = P'
-    vc = Vector{Vector{Tv}}(undef, right - left + 1)
-    vc[right] = zero(x)
-    @axpy(poi[right], y, vc[right])
-    for l = right-1:-1:left+1
-        vc[l] = Pdash * vc[l+1]
-        @axpy(poi[l], y, vc[l])
-    end
+    @inbounds begin
+        left, right = range
+        Pdash = P'
+        vc = Vector{Vector{Tv}}(undef, right - left + 1)
+        vc[right] = zero(x)
+        @axpy(poi[right], y, vc[right])
+        for l = right-1:-1:left+1
+            vc[l] = Pdash * vc[l+1]
+            @axpy(poi[l], y, vc[l])
+        end
 
-    @axpy(poi[left], x, z)
-    _dger!(vc[left+1], x, H)
-    for l = left+1:right-1
-        x .= P * x
-        @axpy(poi[l], x, z)
-        _dger!(vc[l+1], x, H)
+        @axpy(poi[left], x, z)
+        _dger!(vc[left+1], x, H)
+        for l = left+1:right-1
+            x .= P * x
+            @axpy(poi[l], x, z)
+            _dger!(vc[l+1], x, H)
+        end
+        @scal(1/weight, z)
+        @scal(1/qv_weight, H)
+        nothing
     end
-    @scal(1/weight, z)
-    @scal(1/qv_weight, H)
-    nothing
 end
 
 @origin (vc => left, poi => left) function _convunifstep!(::Val{:T}, ::Val{:T},
@@ -180,24 +186,26 @@ end
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
     x::Array{Tv,N}, y::Array{Tv,N}, z::Array{Tv,N},
     H::AbstractMatrix{Tv})::Nothing where {Ti,Tv,N}
-    left, right = range
-    Pdash = P'
-    vc = Vector{Vector{Tv}}(undef, right - left + 1)
-    vc[right] = zero(x)
-    @axpy(poi[right], y, vc[right])
-    for l = right-1:-1:left+1
-        vc[l] = P * vc[l+1]
-        @axpy(poi[l], y, vc[l])
-    end
+    @inbounds begin
+        left, right = range
+        Pdash = P'
+        vc = Vector{Vector{Tv}}(undef, right - left + 1)
+        vc[right] = zero(x)
+        @axpy(poi[right], y, vc[right])
+        for l = right-1:-1:left+1
+            vc[l] = P * vc[l+1]
+            @axpy(poi[l], y, vc[l])
+        end
 
-    @axpy(poi[left], x, z)
-    _dger!(vc[left+1], x, H)
-    for l = left+1:right-1
-        x .= Pdash * x
-        @axpy(poi[l], x, z)
-        _dger!(vc[l+1], x, H)
+        @axpy(poi[left], x, z)
+        _dger!(vc[left+1], x, H)
+        for l = left+1:right-1
+            x .= Pdash * x
+            @axpy(poi[l], x, z)
+            _dger!(vc[l+1], x, H)
+        end
+        @scal(1/weight, z)
+        @scal(1/qv_weight, H)
+        nothing
     end
-    @scal(1/weight, z)
-    @scal(1/qv_weight, H)
-    nothing
 end

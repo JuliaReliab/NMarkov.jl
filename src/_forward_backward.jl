@@ -34,7 +34,7 @@ end
     left, right = range
     Pdash = P'
     @axpy(poi[left], x, y)
-    for i = left+1:right
+    @inbounds for i = left+1:right
         x .= Pdash * x
         @axpy(poi[i], x, y)
     end
@@ -47,7 +47,7 @@ end
     x::ArrayT, y::ArrayT)::Nothing where {Ti,Tv,ArrayT<:AbstractArray{Tv}}
     left, right = range
     @axpy(poi[left], x, y)
-    for i = left+1:right
+    @inbounds for i = left+1:right
         x .= P * x
         @axpy(poi[i], x, y)
     end
@@ -92,7 +92,7 @@ end
     Pdash = P'
     @axpy(poi[left], x, y)
     @axpy(cpoi[left], x, cy)
-    for i = left+1:right
+    @inbounds for i = left+1:right
         x .= Pdash * x
         @axpy(poi[i], x, y)
         @axpy(cpoi[i], x, cy)
@@ -108,7 +108,7 @@ end
     left, right = range
     @axpy(poi[left], x, y)
     @axpy(cpoi[left], x, cy)
-    for i = left+1:right
+    @inbounds for i = left+1:right
         x .= P * x
         @axpy(poi[i], x, y)
         @axpy(cpoi[i], x, cy)

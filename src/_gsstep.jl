@@ -29,7 +29,7 @@ function gsstep!(x::Vector{Tv}, Q::SparseCSC{Tv,Ti}, b::Vector{Tv};
         alpha::Tv=Tv(1), sigma::Tv=Tv(0), omega::Tv=Tv(1))::Nothing where {Tv, Ti}
     m, n = size(Q)
     @assert m == n
-    for j = 1:n
+    @inbounds for j = 1:n
         tmpd::Tv = 0
         tmpx::Tv = b[j] / alpha
         for z = Q.colptr[j]:Q.colptr[j+1]-1
@@ -50,7 +50,7 @@ function gsstep!(x::Vector{Tv}, Q::SparseCSR{Tv,Ti}, b::Vector{Tv};
         alpha::Tv=Tv(1), sigma::Tv=Tv(0), omega::Tv=Tv(1))::Nothing where {Tv, Ti}
     m, n = size(Q)
     @assert m == n
-    for i = 1:m
+    @inbounds for i = 1:m
         tmpd::Tv = 0
         tmpx::Tv = b[j] / alpha
         for z = Q.rowptr[i]:Q.rowptr[i+1]-1

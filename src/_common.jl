@@ -11,7 +11,7 @@ macro axpy(a, x, y)
     expr = quote
         let u = $(esc(a))
             for i in eachindex($(esc(x)))
-                $(esc(y))[i] += u * $(esc(x))[i]
+                @inbounds $(esc(y))[i] += u * $(esc(x))[i]
             end
         end
     end
@@ -22,7 +22,7 @@ macro scal(a, x)
     expr = quote
         let u = $(esc(a))
             for i in eachindex($(esc(x)))
-                $(esc(x))[i] *= u
+                @inbounds $(esc(x))[i] *= u
             end
         end
     end
@@ -33,7 +33,7 @@ macro dot(x, y)
     expr = quote
         s = 0
         for i in eachindex($(esc(x)))
-            s += $(esc(x))[i] * $(esc(y))[i]
+            @inbounds s += $(esc(x))[i] * $(esc(y))[i]
         end
         s
     end
@@ -55,7 +55,7 @@ function itime(t::AbstractVector{Tv}) where Tv
     dt = similar(t)
     prev = Tv(0)
     maxt = Tv(0)
-    for i = eachindex(t)
+    @inbounds for i = eachindex(t)
         dt[i] = t[i] - prev
         prev = t[i]
         if dt[i] > maxt
