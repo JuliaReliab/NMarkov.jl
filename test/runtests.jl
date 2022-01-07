@@ -215,6 +215,29 @@ end
     @test x0 ≈ y0
 end
 
+@testset "STSEN12" begin
+    Q = [
+        -2.0 2.0 0.0;
+        1.0 -2.0 1.0;
+        0.0 1.0 -1.0
+    ]
+    Qdash = [
+        -1.0 1.0 0.0;
+        0.0 0.0 0.0;
+        0.0 0.0 0.0
+    ]
+    pis = gth(Q)
+    b = Qdash' * pis
+    y0 = stsen(Q, pis, b)
+    
+    Q1 = copy(Q)
+    Q1[:,1] .= 1
+    b[1] = 0.0
+    x0 = Q1' \ (-b)
+
+    @test x0 ≈ y0
+end
+
 @testset "STSENPower" begin
     Q = [
         -3.0 2.0 1.0;
