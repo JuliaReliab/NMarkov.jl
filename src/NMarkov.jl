@@ -1,11 +1,11 @@
 module NMarkov
 
 using LinearAlgebra: qr
-# using Printf
+using LinearAlgebra.BLAS: axpy!, scal!, gemv!, gemm!
 
 using Origin: @origin
 using SparseArrays: SparseMatrixCSC, nnz
-using SparseMatrix: SparseCSR, SparseCSC, SparseCOO, spdiag
+using SparseMatrix: SparseCSR, SparseCSC, SparseCOO, spdiag, spger!
 using Distributions: UnivariateDistribution, pdf, cquantile, Normal
 using Deformula: deint
 

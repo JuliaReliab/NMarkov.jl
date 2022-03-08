@@ -74,7 +74,7 @@ function stsengs(Q::SparseCSC{Tv,Ti}, pis::Vector{Tv}, b::Vector{Tv};
         prevx .= x
         for i in 1:steps
             gsstep!(x, Q, b, alpha=-Tv(1))
-            @axpy(-sum(x), pis, x)
+            axpy!(-sum(x), pis, x)
         end
         # rerror = maximum(abs.((x - prevx) ./ x))
         rerror = maximum(abs.(x - prevx)) / maximum(x)
@@ -130,7 +130,7 @@ function stsenpower(P::AbstractMatrix{Tv}, pis::Vector{Tv}, b::Vector{Tv};
         prevx .= x
         for i in 1:steps
             x = Pdash * x + b
-            @axpy(-sum(x), pis, x)
+            axpy!(-sum(x), pis, x)
         end
         # rerror = maximum(abs.((x - prevx) ./ x))
         rerror = maximum(abs.(x - prevx)) / maximum(x)

@@ -1,58 +1,6 @@
-"""
-Convolution for CTMC
-"""
-
-function _dger!(x::Array{Tv,1}, y::Array{Tv,1}, A::Matrix{Tv}) where {Tv}
-    m, n = size(A)
-    @inbounds for j = 1:n
-        for i = 1:m
-            A[i,j] += x[i] * y[j]
-        end
-    end
-    nothing
-end
-
-function _dger!(x::Array{Tv,1}, y::Array{Tv,1}, A::SparseCSR{Tv,Ti}) where {Ti,Tv}
-    m, n = size(A)
-    @inbounds for i = 1:m
-        for z = A.rowptr[i]:A.rowptr[i+1]-1
-            j = A.colind[z]
-            A.val[z] += x[i] * y[j]
-        end
-    end
-    nothing
-end
-
-function _dger!(x::Array{Tv,1}, y::Array{Tv,1}, A::SparseCSC{Tv,Ti}) where {Ti,Tv}
-    m, n = size(A)
-    @inbounds for j = 1:n
-        for z = A.colptr[j]:A.colptr[j+1]-1
-            i = A.rowind[z]
-            A.val[z] += x[i] * y[j]
-        end
-    end
-    nothing
-end
-
-function _dger!(x::Array{Tv,1}, y::Array{Tv,1}, A::SparseCOO{Tv,Ti}) where {Ti,Tv}
-    @inbounds for z = 1:nnz(A)
-        i = A.rowind[z]
-        j = A.colind[z]
-        A.val[z] += x[i] * y[j]
-    end
-    nothing
-end
-
-function _dger!(x::Array{Tv,1}, y::Array{Tv,1}, A::SparseMatrixCSC{Tv,Ti}) where {Ti,Tv}
-    m, n = size(A)
-    @inbounds for j = 1:n
-        for z = A.colptr[j]:A.colptr[j+1]-1
-            i = A.rowval[z]
-            A.nzval[z] += x[i] * y[j]
-        end
-    end
-    nothing
-end
+# """
+# Convolution for CTMC
+# """
 
 """
 convunifstep!(trQ, trH, P, poi, range, weight, qv_weight, x, y, z, H)
@@ -94,6 +42,35 @@ function convunifstep!(trQ::Symbol, trH::Symbol,
     _convunifstep!(Val(trQ), Val(trH), P, poi, range, weight, qv_weight, x, y, z, H)
 end
 
+# @origin (vc => left, poi => left) function _convunifstep!(::Val{:N}, ::Val{:N},
+#     P::AbstractMatrix{Tv},
+#     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
+#     x::Array{Tv,N}, y::Array{Tv,N}, z::Array{Tv,N},
+#     H::AbstractMatrix{Tv})::Nothing where {Ti,Tv,N}
+#     @inbounds begin
+#         left, right = range
+#         Pdash = P'
+#         vc = Vector{Vector{Tv}}(undef, right - left + 1)
+#         vc[right] = zero(x)
+#         @axpy(poi[right], y, vc[right])
+#         for l = right-1:-1:left+1
+#             vc[l] = Pdash * vc[l+1]
+#             @axpy(poi[l], y, vc[l])
+#         end
+
+#         @axpy(poi[left], x, z)
+#         _dger!(x, vc[left+1], H)
+#         for l = left+1:right-1
+#             x .= P * x
+#             @axpy(poi[l], x, z)
+#             _dger!(x, vc[l+1], H)
+#         end
+#         @scal(1/weight, z)
+#         @scal(1/qv_weight, H)
+#         nothing
+#     end
+# end
+
 @origin (vc => left, poi => left) function _convunifstep!(::Val{:N}, ::Val{:N},
     P::AbstractMatrix{Tv},
     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
@@ -101,27 +78,58 @@ end
     H::AbstractMatrix{Tv})::Nothing where {Ti,Tv,N}
     @inbounds begin
         left, right = range
-        Pdash = P'
+        tmpv = similar(x)
         vc = Vector{Vector{Tv}}(undef, right - left + 1)
         vc[right] = zero(x)
-        @axpy(poi[right], y, vc[right])
+        axpy!(poi[right], y, vc[right])
         for l = right-1:-1:left+1
-            vc[l] = Pdash * vc[l+1]
-            @axpy(poi[l], y, vc[l])
+            vc[l] = similar(x)
+            gemv!('T', 1.0, P, vc[l+1], false, vc[l])
+            axpy!(poi[l], y, vc[l])
         end
 
-        @axpy(poi[left], x, z)
-        _dger!(x, vc[left+1], H)
+        axpy!(poi[left], x, z)
+        spger!(1.0, x, vc[left+1], 1.0, H)
         for l = left+1:right-1
-            x .= P * x
-            @axpy(poi[l], x, z)
-            _dger!(x, vc[l+1], H)
+            gemv!('N', 1.0, P, x, false, tmpv)
+            @. x = tmpv
+            axpy!(poi[l], x, z)
+            spger!(1.0, x, vc[l+1], 1.0, H)
         end
-        @scal(1/weight, z)
-        @scal(1/qv_weight, H)
+        scal!(1/weight, z)
+        scal!(1/qv_weight, H)
         nothing
     end
 end
+
+# @origin (vc => left, poi => left) function _convunifstep!(::Val{:T}, ::Val{:N},
+#     P::AbstractMatrix{Tv},
+#     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
+#     x::Array{Tv,N}, y::Array{Tv,N}, z::Array{Tv,N},
+#     H::AbstractMatrix{Tv})::Nothing where {Ti,Tv,N}
+#     @inbounds begin
+#         left, right = range
+#         Pdash = P'
+#         vc = Vector{Vector{Tv}}(undef, right - left + 1)
+#         vc[right] = zero(x)
+#         @axpy(poi[right], y, vc[right])
+#         for l = right-1:-1:left+1
+#             vc[l] = P * vc[l+1]
+#             @axpy(poi[l], y, vc[l])
+#         end
+
+#         @axpy(poi[left], x, z)
+#         _dger!(x, vc[left+1], H)
+#         for l = left+1:right-1
+#             x .= Pdash * x
+#             @axpy(poi[l], x, z)
+#             _dger!(x, vc[l+1], H)
+#         end
+#         @scal(1/weight, z)
+#         @scal(1/qv_weight, H)
+#         nothing
+#     end
+# end
 
 @origin (vc => left, poi => left) function _convunifstep!(::Val{:T}, ::Val{:N},
     P::AbstractMatrix{Tv},
@@ -130,27 +138,58 @@ end
     H::AbstractMatrix{Tv})::Nothing where {Ti,Tv,N}
     @inbounds begin
         left, right = range
-        Pdash = P'
+        tmpv = similar(x)
         vc = Vector{Vector{Tv}}(undef, right - left + 1)
         vc[right] = zero(x)
-        @axpy(poi[right], y, vc[right])
+        axpy!(poi[right], y, vc[right])
         for l = right-1:-1:left+1
-            vc[l] = P * vc[l+1]
-            @axpy(poi[l], y, vc[l])
+            vc[l] = similar(x)
+            gemv!('N', 1.0, P, vc[l+1], false, vc[l])
+            axpy!(poi[l], y, vc[l])
         end
 
-        @axpy(poi[left], x, z)
-        _dger!(x, vc[left+1], H)
+        axpy!(poi[left], x, z)
+        spger!(1.0, x, vc[left+1], 1.0, H)
         for l = left+1:right-1
-            x .= Pdash * x
-            @axpy(poi[l], x, z)
-            _dger!(x, vc[l+1], H)
+            gemv!('T', 1.0, P, x, false, tmpv)
+            @. x = tmpv
+            axpy!(poi[l], x, z)
+            spger!(1.0, x, vc[l+1], 1.0, H)
         end
-        @scal(1/weight, z)
-        @scal(1/qv_weight, H)
+        scal!(1/weight, z)
+        scal!(1/qv_weight, H)
         nothing
     end
 end
+
+# @origin (vc => left, poi => left) function _convunifstep!(::Val{:N}, ::Val{:T},
+#     P::AbstractMatrix{Tv},
+#     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
+#     x::Array{Tv,N}, y::Array{Tv,N}, z::Array{Tv,N},
+#     H::AbstractMatrix{Tv})::Nothing where {Ti,Tv,N}
+#     @inbounds begin
+#         left, right = range
+#         Pdash = P'
+#         vc = Vector{Vector{Tv}}(undef, right - left + 1)
+#         vc[right] = zero(x)
+#         @axpy(poi[right], y, vc[right])
+#         for l = right-1:-1:left+1
+#             vc[l] = Pdash * vc[l+1]
+#             @axpy(poi[l], y, vc[l])
+#         end
+
+#         @axpy(poi[left], x, z)
+#         _dger!(vc[left+1], x, H)
+#         for l = left+1:right-1
+#             x .= P * x
+#             @axpy(poi[l], x, z)
+#             _dger!(vc[l+1], x, H)
+#         end
+#         @scal(1/weight, z)
+#         @scal(1/qv_weight, H)
+#         nothing
+#     end
+# end
 
 @origin (vc => left, poi => left) function _convunifstep!(::Val{:N}, ::Val{:T},
     P::AbstractMatrix{Tv},
@@ -159,27 +198,58 @@ end
     H::AbstractMatrix{Tv})::Nothing where {Ti,Tv,N}
     @inbounds begin
         left, right = range
-        Pdash = P'
+        tmpv = similar(x)
         vc = Vector{Vector{Tv}}(undef, right - left + 1)
         vc[right] = zero(x)
-        @axpy(poi[right], y, vc[right])
+        axpy!(poi[right], y, vc[right])
         for l = right-1:-1:left+1
-            vc[l] = Pdash * vc[l+1]
-            @axpy(poi[l], y, vc[l])
+            vc[l] = similar(x)
+            gemv!('T', 1.0, P, vc[l+1], false, vc[l])
+            axpy!(poi[l], y, vc[l])
         end
 
-        @axpy(poi[left], x, z)
-        _dger!(vc[left+1], x, H)
+        axpy!(poi[left], x, z)
+        spger!(1.0, vc[left+1], x, 1.0, H)
         for l = left+1:right-1
-            x .= P * x
-            @axpy(poi[l], x, z)
-            _dger!(vc[l+1], x, H)
+            gemv!('N', 1.0, P, x, false, tmpv)
+            @. x = tmpv
+            axpy!(poi[l], x, z)
+            spger!(1.0, vc[l+1], x, 1.0, H)
         end
-        @scal(1/weight, z)
-        @scal(1/qv_weight, H)
+        scal!(1/weight, z)
+        scal!(1/qv_weight, H)
         nothing
     end
 end
+
+# @origin (vc => left, poi => left) function _convunifstep!(::Val{:T}, ::Val{:T},
+#     P::AbstractMatrix{Tv},
+#     poi::Vector{Tv}, range::Tuple{Ti,Ti}, weight::Tv, qv_weight::Tv,
+#     x::Array{Tv,N}, y::Array{Tv,N}, z::Array{Tv,N},
+#     H::AbstractMatrix{Tv})::Nothing where {Ti,Tv,N}
+#     @inbounds begin
+#         left, right = range
+#         Pdash = P'
+#         vc = Vector{Vector{Tv}}(undef, right - left + 1)
+#         vc[right] = zero(x)
+#         @axpy(poi[right], y, vc[right])
+#         for l = right-1:-1:left+1
+#             vc[l] = P * vc[l+1]
+#             @axpy(poi[l], y, vc[l])
+#         end
+
+#         @axpy(poi[left], x, z)
+#         _dger!(vc[left+1], x, H)
+#         for l = left+1:right-1
+#             x .= Pdash * x
+#             @axpy(poi[l], x, z)
+#             _dger!(vc[l+1], x, H)
+#         end
+#         @scal(1/weight, z)
+#         @scal(1/qv_weight, H)
+#         nothing
+#     end
+# end
 
 @origin (vc => left, poi => left) function _convunifstep!(::Val{:T}, ::Val{:T},
     P::AbstractMatrix{Tv},
@@ -188,24 +258,26 @@ end
     H::AbstractMatrix{Tv})::Nothing where {Ti,Tv,N}
     @inbounds begin
         left, right = range
-        Pdash = P'
+        tmpv = similar(x)
         vc = Vector{Vector{Tv}}(undef, right - left + 1)
         vc[right] = zero(x)
-        @axpy(poi[right], y, vc[right])
+        axpy!(poi[right], y, vc[right])
         for l = right-1:-1:left+1
-            vc[l] = P * vc[l+1]
-            @axpy(poi[l], y, vc[l])
+            vc[l] = similar(x)
+            gemv!('N', 1.0, P, vc[l+1], false, vc[l])
+            axpy!(poi[l], y, vc[l])
         end
 
-        @axpy(poi[left], x, z)
-        _dger!(vc[left+1], x, H)
+        axpy!(poi[left], x, z)
+        spger!(1.0, vc[left+1], x, 1.0, H)
         for l = left+1:right-1
-            x .= Pdash * x
-            @axpy(poi[l], x, z)
-            _dger!(vc[l+1], x, H)
+            gemv!('T', 1.0, P, x, false, tmpv)
+            @. x = tmpv
+            axpy!(poi[l], x, z)
+            spger!(1.0, vc[l+1], x, 1.0, H)
         end
-        @scal(1/weight, z)
-        @scal(1/qv_weight, H)
+        scal!(1/weight, z)
+        scal!(1/qv_weight, H)
         nothing
     end
 end

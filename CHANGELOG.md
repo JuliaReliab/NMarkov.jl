@@ -1,3 +1,7 @@
+# NMarkov 0.3.4
+
+- remove unifstep function
+
 # NMarkov 0.3.3
 
 - add stsen; sensitivity vector for CTMC with QR

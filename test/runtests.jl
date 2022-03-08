@@ -767,6 +767,7 @@ end
 
     ts = LinRange(0.0, 10.0, 10)
     @time irwd, crwd, y, cy = tran(Q, x, r, ts, forward=:T)
+    @time irwd, crwd, y, cy = tran(Q, x, r, ts, forward=:T)
     
     res,cres = mexpc(Q, x, ts, transpose=:T)
     @test isapprox(irwd, [sum(x .* r) for x = res])
@@ -783,6 +784,7 @@ end
     r = Float64[1, 1, 0]
 
     ts = LinRange(0.0, 10.0, 10)
+    @time irwd, crwd, y, cy = tran(Q, x, r, ts, forward=:N)
     @time irwd, crwd, y, cy = tran(Q, x, r, ts, forward=:N)
     
     res,cres = mexpc(Q, x, ts, transpose=:T)
@@ -801,6 +803,7 @@ end
 
     ts = LinRange(0.0, 10.0, 10)
     @time irwd, crwd, y, cy = tran(Q, x, r, ts, forward=:T)
+    @time irwd, crwd, y, cy = tran(Q, x, r, ts, forward=:T)
     
     res,cres = mexpc(Q, r, ts, transpose=:N)
     @test isapprox(irwd, [x* r for r = res])
@@ -817,6 +820,7 @@ end
     r = Float64[1, 1, 0]
 
     ts = LinRange(0.0, 10.0, 10)
+    @time irwd, crwd, y, cy = tran(Q, x, r, ts, forward=:N)
     @time irwd, crwd, y, cy = tran(Q, x, r, ts, forward=:N)
     
     res,cres = mexpc(Q, r, ts, transpose=:N)
@@ -835,6 +839,7 @@ end
 
     ts = LinRange(0.0, 10.0, 10)
     @time irwd, crwd, y, cy = tran(Q, x, r', ts, forward=:N)
+    @time irwd, crwd, y, cy = tran(Q, x, r', ts, forward=:N)
     
     res,cres = mexpc(Q, r', ts, transpose=:N)
     @test isapprox(irwd, [x * r for r = res])
@@ -851,6 +856,7 @@ end
     r = Float64[1 1 0; 0 1 0]
 
     ts = LinRange(0.0, 10.0, 10)
+    @time irwd, crwd, y, cy = tran(Q, x, r', ts, forward=:T)
     @time irwd, crwd, y, cy = tran(Q, x, r', ts, forward=:T)
     
     res,cres = mexpc(Q, r', ts, transpose=:N)

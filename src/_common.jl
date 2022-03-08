@@ -7,27 +7,27 @@
 BLAS Level 1 functions.
 """
 
-macro axpy(a, x, y)
-    expr = quote
-        let u = $(esc(a))
-            for i in eachindex($(esc(x)))
-                @inbounds $(esc(y))[i] += u * $(esc(x))[i]
-            end
-        end
-    end
-    expr
-end
+# macro axpy(a, x, y)
+#     expr = quote
+#         let u = $(esc(a))
+#             for i in eachindex($(esc(x)))
+#                 @inbounds $(esc(y))[i] += u * $(esc(x))[i]
+#             end
+#         end
+#     end
+#     expr
+# end
 
-macro scal(a, x)
-    expr = quote
-        let u = $(esc(a))
-            for i in eachindex($(esc(x)))
-                @inbounds $(esc(x))[i] *= u
-            end
-        end
-    end
-    expr
-end
+# macro scal(a, x)
+#     expr = quote
+#         let u = $(esc(a))
+#             for i in eachindex($(esc(x)))
+#                 @inbounds $(esc(x))[i] *= u
+#             end
+#         end
+#     end
+#     expr
+# end
 
 macro dot(x, y)
     expr = quote
@@ -38,6 +38,20 @@ macro dot(x, y)
         s
     end
     expr
+end
+
+function trans(transpose::Symbol)
+    transpose == :N && return 'N'
+    transpose == :T && return 'T'
+    nothing
+end
+
+function matmul!(transpose::Symbol, alpha::Union{Tv,Bool}, A::AbstractMatrix{Tv}, B::AbstractMatrix{Tv}, beta::Union{Tv,Bool}, C::AbstractMatrix{Tv}) where Tv
+    gemm!(trans(transpose), 'N', alpha, A, B, beta, C)
+end
+
+function matmul!(transpose::Symbol, alpha::Union{Tv,Bool}, A::AbstractMatrix{Tv}, B::AbstractVector{Tv}, beta::Union{Tv,Bool}, C::AbstractVector{Tv}) where Tv
+    gemv!(trans(transpose), alpha, A, B, beta, C)
 end
 
 """
