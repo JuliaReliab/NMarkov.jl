@@ -33,15 +33,3 @@ end
     P, qv = unif(spQ)
     println(P)
 end
-
-@testset "unif4" begin
-    Q = [
-        -3.0 3.0 0.0;
-        0.0 -5.0 5.0;
-        0.0 0.0 0.0
-    ]
-    spQ = SparseCSC(Q)
-    println(spdiag(spQ))
-    P, qv = unif(spQ)
-    println(P)
-end
