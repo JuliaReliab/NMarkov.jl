@@ -1,3 +1,7 @@
+# NMarkov 0.3.5
+
+- Change the version of sparsematrix
+
 # NMarkov 0.3.4
 
 - remove unifstep function
