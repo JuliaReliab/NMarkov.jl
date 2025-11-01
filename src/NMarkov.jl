@@ -3,7 +3,7 @@ module NMarkov
 using LinearAlgebra: qr
 using LinearAlgebra.BLAS: axpy!, scal!, gemv!, gemm!
 
-using Origin: @origin
+using ZeroOrigin: @origin
 using SparseArrays: SparseMatrixCSC, nnz
 using SparseMatrix: SparseCSR, SparseCSC, SparseCOO, spdiag, spger!
 using Distributions: UnivariateDistribution, pdf, cquantile, Normal

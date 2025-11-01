@@ -1,3 +1,8 @@
+# NMarkov 0.3.6
+
+- fix a bug in stsen for dense Q
+- use ZeroOrigin.jl instead of Origin.jl (The latter is deprecated)
+
 # NMarkov 0.3.5
 
 - Change the version of sparsematrix

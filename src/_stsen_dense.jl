@@ -22,6 +22,6 @@ function stsen(Q::Matrix{Tv}, pis::Vector{Tv}, b::Vector{Tv})::Vector{Tv} where 
     @assert ctmcstcheck(Q, pis)
     qm, rm = qr(Q')
     rm[m,n] = Tv(1)
-    xx = rm \ (- qm' * b)
+    xx = rm \ (-(qm' * b))
     xx - sum(xx) * pis
 end
