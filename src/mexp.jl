@@ -13,8 +13,8 @@ exp(tr(Q)*t) * x
 
 Parameters:
 - Q: CTMC Kernel
-- x: Array
-- t: time
+- x: Array (any numeric type, will be converted to Float64)
+- t: time (any numeric type, will be converted to Float64)
 - transpose: forward or backward
 - ufact: uniformization factor
 - eps: tolerance error for Poisson p.m.f.
@@ -24,18 +24,15 @@ Return value:
 - probability vector
 """
 
-# function mexp(Q::AbstractMatrix{Tv}, x::ArrayT, t::Tv;
-#     transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv, ArrayT <: AbstractArray{Tv}}
-#     m, n = size(Q)
-#     @assert m == n
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*t, eps)
-#     @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
-#     weight, poi = poipmf(qv*t, right, left = 0)
-#     y = zero(x)
-#     unifstep!(transpose, P, poi, (0, right), weight, copy(x), y)
-#     return y
-# end
+# Wrapper function to handle type conversions (for mixed types)
+function mexp(Q::AbstractMatrix{Tv}, x::AbstractArray, t::Union{Int, Float32, Float16};
+    transpose::Symbol=:N, ufact::Real=1.01, eps::Real=1.0e-8, rmax=500) where {Tv}
+    x_float = vec(convert(Array{Tv}, x))
+    t_float = convert(Tv, t)
+    ufact_float = convert(Tv, ufact)
+    eps_float = convert(Tv, eps)
+    return mexp(Q, x_float, t_float; transpose=transpose, ufact=ufact_float, eps=eps_float, rmax=rmax)
+end
 
 @inbounds function mexp(Q::AbstractMatrix{Tv}, x::ArrayT, t::Tv;
     transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv, ArrayT <: AbstractArray{Tv}}
@@ -70,8 +67,8 @@ int_0^t exp(tr(Q)*u) * x du
 
 Parameters:
 - Q: CTMC Kernel
-- x: Array
-- t: time
+- x: Array (any numeric type, will be converted to Float64)
+- t: time (any numeric type, will be converted to Float64)
 - transpose: forward or backward
 - ufact: uniformization factor
 - eps: tolerance error for Poisson p.m.f.
@@ -82,19 +79,15 @@ Return value (tuple)
 - cumulative value
 """
 
-# function mexpc(Q::AbstractMatrix{Tv}, x::ArrayT, t::Tv;
-#     transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv, ArrayT <: AbstractArray{Tv}}
-#     m, n = size(Q)
-#     @assert m == n
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*t, eps) + 1
-#     @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
-#     weight, poi, cpoi = cpoipmf(qv*t, right, left = 0)
-#     y = zero(x)
-#     cy = zero(x)
-#     cunifstep!(transpose, P, poi, cpoi, (0, right), weight, qv*weight, copy(x), y, cy)
-#     return y, cy
-# end
+# Wrapper function to handle type conversions (for mixed types)
+function mexpc(Q::AbstractMatrix{Tv}, x::AbstractArray, t::Union{Int, Float32, Float16};
+    transpose::Symbol=:N, ufact::Real=1.01, eps::Real=1.0e-8, rmax=500) where {Tv}
+    x_float = vec(convert(Array{Tv}, x))
+    t_float = convert(Tv, t)
+    ufact_float = convert(Tv, ufact)
+    eps_float = convert(Tv, eps)
+    return mexpc(Q, x_float, t_float; transpose=transpose, ufact=ufact_float, eps=eps_float, rmax=rmax)
+end
 
 @inbounds function mexpc(Q::AbstractMatrix{Tv}, x::ArrayT, t::Tv;
     transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv, ArrayT <: AbstractArray{Tv}}
@@ -131,8 +124,8 @@ exp(tr(Q)*t) * x for t = ts
 
 Parameters:
 - Q: CTMC Kernel
-- x: Array
-- ts: time series
+- x: Array (any numeric type, will be converted to Float64)
+- ts: time series (any numeric type, will be converted to Float64)
 - transpose: forward or backward
 - ufact: uniformization factor
 - eps: tolerance error for Poisson p.m.f.
@@ -142,28 +135,18 @@ Return value:
 - probability vector
 """
 
-# function mexp(Q::AbstractMatrix{Tv}, x::ArrayT, ts::AbstractVector{Tv};
-#     transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
-#     m, n = size(Q)
-#     @assert m == n
-#     dt, maxt = itime(sort(ts))
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*maxt, eps)
-#     @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
-#     prob = Vector{Tv}(undef, right+1)
-
-#     result = Vector{Any}(undef, length(dt)) # TODO: memory usage?
-#     y0 = copy(x)
-#     for k = eachindex(dt)
-#         right = rightbound(qv*dt[k], eps)
-#         weight = poipmf!(qv*dt[k], prob; left=0, right=right)
-#         y1 = zero(y0)
-#         unifstep!(transpose, P, prob, (0, right), weight, y0, y1)
-#         result[k] = y1
-#         y0 .= y1
-#     end
-#     return result
-# end
+# Wrapper function to handle type conversions (for mixed types)
+function mexp(Q::AbstractMatrix{Tv}, x::AbstractArray, ts::AbstractVector;
+    transpose::Symbol=:N, ufact::Real=1.01, eps::Real=1.0e-8, rmax=500) where {Tv}
+    if !(eltype(x) <: Tv && eltype(ts) <: Tv)
+        x_float = vec(convert(Array{Tv}, x))
+        ts_float = convert(Vector{Tv}, ts)
+        ufact_float = convert(Tv, ufact)
+        eps_float = convert(Tv, eps)
+        return mexp(Q, x_float, ts_float; transpose=transpose, ufact=ufact_float, eps=eps_float, rmax=rmax)
+    end
+    error("Method not found for these exact types")
+end
 
 @inbounds function mexp(Q::AbstractMatrix{Tv}, x::ArrayT, ts::AbstractVector{Tv};
     transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}

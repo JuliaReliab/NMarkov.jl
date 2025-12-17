@@ -12,9 +12,9 @@ cumulative reward: x * int_0^t exp(Q*u) * r du for t = ts
 
 Parameters:
 - Q: CTMC Kernel
-- x: initial vector.
-- r: reward vector.
-- ts: time series
+- x: initial vector (any numeric type, will be converted to Float64)
+- r: reward vector (any numeric type, will be converted to Float64)
+- ts: time series (any numeric type, will be converted to Float64)
 - forward: forward or backward
 - ufact: uniformization factor
 - eps: tolerance error for Poisson p.m.f.
@@ -26,6 +26,20 @@ Return value (tuple)
 - probability vector at the last time (forward is :T)
 - reward vector at the initial time (forward is :N)
 """
+
+# Wrapper function to handle type conversions (for mixed types)
+function tran(Q::AbstractMatrix{Tv}, x::AbstractArray, r::AbstractArray, ts::AbstractVector;
+    forward::Symbol=:T, ufact::Real=1.01, eps::Real=1.0e-8, rmax=500) where {Tv}
+    if !(eltype(x) <: Tv && eltype(r) <: Tv && eltype(ts) <: Tv)
+        x_float = vec(convert(Array{Tv}, x))
+        r_float = vec(convert(Array{Tv}, r))
+        ts_float = convert(Vector{Tv}, ts)
+        ufact_float = convert(Tv, ufact)
+        eps_float = convert(Tv, eps)
+        return tran(Q, x_float, r_float, ts_float; forward=forward, ufact=ufact_float, eps=eps_float, rmax=rmax)
+    end
+    error("Method not found for these exact types")
+end
 
 function tran(Q::AbstractMatrix{Tv}, x::ArrayT1, r::ArrayT2, ts::AbstractVector{Tv};
     forward::Symbol=:T, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT1<:AbstractArray{Tv},ArrayT2<:AbstractArray{Tv}}

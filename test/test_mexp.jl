@@ -226,6 +226,27 @@ end
     @test res0[2] ≈ res5[2]
 end
 
+@testset "mexp type flexibility" begin
+    Q = [
+        -3.0 2.0 0.0;
+        1.0 -5.0 4.0;
+        1.0 1.0 -2.0
+    ]
+    # Test with Int initial vector and Int time
+    x0_int = [1, 0, 0]  # Int vector
+    t_int = 1  # Int time
+    x0_float = Float64[1, 0, 0]
+    t_float = 1.0
+    
+    res_float = mexp(Q, x0_float, t_float)
+    res_int = mexp(Q, x0_int, t_int)
+    @test res_int ≈ res_float
+    
+    # Test with matrix form Int initial vector
+    x0_matrix = [1; 0; 0]
+    res_matrix = mexp(Q, x0_matrix, t_int)
+    @test res_matrix ≈ res_float
+end
 @testset "mixexp1" begin
     Q = [
         -3.0 2.0 0.0;
