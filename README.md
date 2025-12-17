@@ -2,27 +2,38 @@
 
 [![Build Status](https://travis-ci.com/okamumu/NMarkov.jl.svg?branch=master)](https://travis-ci.com/okamumu/NMarkov.jl)
 [![Codecov](https://codecov.io/gh/okamumu/NMarkov.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/okamumu/NMarkov.jl)
-[![Coveralls](https://coveralls.io/repos/github/okamumu/NMarkov.jl/badge.svg?branch=master)](https://coveralls.io/github/okamumu/NMarkov.jl?branch=master)
-
 NMarkov.jl is a package for numerical computation of Markov chains.
 
 ## Installation
 
-This is not in the official package of Julia yet. Please run the following command to install it.
-```
+This package is not yet registered in the official Julia Registry. Please run the following command to install it.
+```julia
 using Pkg
-Pkg.add(PackageSpec(url="https://github.com/JuliaReliab/Origin.jl.git"))
-Pkg.add(PackageSpec(url="https://github.com/JuliaReliab/Deformula.jl.git"))
-Pkg.add(PackageSpec(url="https://github.com/JuliaReliab/SparseMatrix.jl.git"))
+Pkg.add(PackageSpec(url="https://github.com/JuliaReliab/ZeroOrigin.jl.git"))
+Pkg.add(PackageSpec(url="https://github.com/JuliaReliab/DEQuadrature.jl.git"))
 Pkg.add(PackageSpec(url="https://github.com/JuliaReliab/NMarkov.jl.git"))
 ```
 
-The packages `Origin`, `Deformula` and `SparseMatrix` are required from NMarkov.
+The packages `ZeroOrigin` and `DEQuadrature` are required dependencies of NMarkov.
 
-## Load module
+## Quick Start
 
-```
+```julia
 using NMarkov
+```
+
+For examples, see the `examples/` directory which contains runnable scripts for:
+- CTMC definition
+- Transient analysis
+- Stationary analysis
+- Sensitivity analysis
+- Quasi-stationary analysis
+- Markov reward models
+- Uniformized matrices
+
+You can run examples with:
+julia --project=. examples/02_transient_analysis.jl
+# ... and so on
 ```
 
 ## Continuous-Time Markov Chain (CTMC)
@@ -56,10 +67,10 @@ Q = [
 ]
 ```
 
-In the package, the inifinitesimal generator is allowed to be a sparse matrix provided by `SparseMatrix` package.
-```
+In the package, the infinitesimal generator is allowed to be a sparse matrix provided by the built-in `SparseMatrix` submodule.
+```julia
 using SparseArrays
-using SparseMatrix
+using NMarkov.SparseMatrix
 
 spQ = spzeros(3,3)
 spQ[1,2] = 1.0
@@ -75,7 +86,35 @@ csr = SparseCSR(spQ)
 csc = SparseCSC(spQ)
 coo = SparseCOO(spQ)
 ```
-All the matrices `spQ`, `csr`, `csc` and `coo` can be used as the infinitesimal generator of Q in the package.
+All the matrices `spQ`, `csr`, `csc` and `coo` can be used as the infinitesimal generator Q in the package.
+
+### Sparse Matrix Formats
+
+The `SparseMatrix` submodule provides efficient sparse matrix formats optimized for Markov chain computations:
+
+- **SparseCSR (Compressed Sparse Row)**: Efficient for row-wise access and matrix-vector products
+- **SparseCSC (Compressed Sparse Column)**: Efficient for column-wise access and recommended for many algorithms
+- **SparseCOO (Coordinate Format)**: Flexible format for constructing sparse matrices; can be converted to CSR/CSC
+- **SparseELL (ELLPACK Format)**: Efficient for matrices with relatively uniform row lengths
+- **BlockCOO (Block Coordinate Format)**: For matrices with dense block structure
+
+Each format has different performance characteristics depending on the operation:
+```julia
+using NMarkov.SparseMatrix
+
+# Convert between formats
+M = sparse(Q)  # Julia's native SparseMatrixCSC
+csr = SparseCSR(M)    # Convert to CSR format
+csc = SparseCSC(M)    # Convert to CSC format
+coo = SparseCOO(M)    # Convert to COO format
+
+# Use in computations
+piv = stgs(csc)       # Gauss-Seidel with CSC format
+piv = stgs(coo)       # Also works with COO format
+y = mexp(csr, x, t)   # Matrix exponential with CSR format
+```
+
+For most applications, **CSC format is recommended** as it provides good performance for standard matrix operations and is compatible with the Gauss-Seidel algorithms used in stationary analysis.
 
 ## Transient Analysis of CTMC
 
@@ -92,14 +131,14 @@ x0 = Float64[1, 0, 0]
 t = 2.0
 xt = mexp(Q, x0, t, transpose=:T)
 ```
-The function `mexp` can use sparse matrix forms.
+The function `mexp` can also use sparse matrix forms:
 ```julia
 mexp(spQ, x0, t, transpose=:T)
 mexp(csr, x0, t, transpose=:T)
 mexp(csc, x0, t, transpose=:T)
 mexp(coo, x0, t, transpose=:T)
 ```
-where `transpose` option takes either `:T` or `:N`. If `transpose` takes `:N`, it computes
+where the `transpose` option takes either `:T` (transpose) or `:N` (no transpose). If `transpose=:N`, it computes
 
 ```math
 x_t = \exp(Q t) x_0
@@ -158,15 +197,15 @@ The vector $x_\infty$ is called the limiting probability vector. Also if $\pi$ i
 $\pi$ is called the stationary probability vector. Although the limiting probability vector and the stationary probability vector are not always coincide, they are coincide under some condition.
 
 The package provides the stationary vector of CTMC.
-There are two functions to obtain the stationary vector `gth` and `stgs`.
+There are two main functions to obtain the stationary vector: `gth` (GTH algorithm) and `stgs` (Gauss-Seidel algorithm).
 
 ```julia
 piv1 = gth(Q)
-piv2 = stgs(spQ)
-piv3 = stgs(csc)
+piv2, converged, iter, error = stgs(spQ)
+piv3, converged, iter, error = stgs(csc)
 ```
 
-The function `gth` can be applied to a dense matrix only in which GTH algorith is implemented. The function `stgs` can be applied to a CSC-format sparse matrix in which Gauss-Seidel algorithm is implemented.
+The function `gth` can be applied to dense matrices only and uses the GTH algorithm. The function `stgs` can be applied to sparse matrices (both `SparseMatrixCSC` and custom `SparseCSC` formats) and uses the Gauss-Seidel iteration method. Note that `stgs` returns a tuple containing the solution vector and convergence information.
 
 ### Sensitivity analysis of stationary vector
 
@@ -196,12 +235,15 @@ s Q + b = 0, \quad s 1 = 0
 
 Therefore, it can also be used for obtaining the high-order derivative of stationary vector.
 
-In the case of sparse matrix, we use the different function.
+For sparse matrices, use the `stsengs` function which employs the Gauss-Seidel algorithm:
 ```julia
-stsengs(spQ, piv, b)
-stsengs(csc, piv, b)
+dpi = stsengs(spQ, piv, b)
+dpi = stsengs(csc, piv, b)
 ```
-They use the Guss-Seidel algorithm to solve the linear equation.
+Note: When using `stgs`, extract the solution vector from the returned tuple:
+```julia
+piv, _, _, _ = stgs(spQ)  # Extract the first element
+```
 
 ## Quasi-Stationary Analysis
 
@@ -239,14 +281,57 @@ qstgs(SparseCSC(T), xi)
 
 ## Markov Reward Model
 
-to be written
+The Markov reward model extends the CTMC by associating a reward rate with each state. The total reward accumulated over time is computed by integrating the reward rates weighted by the state probabilities.
 
+The `tran` function computes transient reward analysis for a CTMC with reward vector. Given:
+- $x$: initial state probability vector
+- $r$: reward vector (reward rate for each state)
+- $ts$: time points at which to compute rewards
+
+The function returns four values:
+
+1. **`irwd` (Instantaneous Reward)**: The instantaneous reward rate at each time point
+   - $\text{irwd}_t = r^T \cdot x(t)$ (reward at time $t$)
+
+2. **`crwd` (Cumulative Reward)**: The cumulative reward accumulated from time 0 to each time point
+   - $\text{crwd}_t = \int_0^t r^T \cdot x(u) \, du$ (total reward up to time $t$)
+
+3. **`y` (State Probability Vectors)**: State probability vector at each time point
+   - $y_t = x \exp(Qt)$ (probability distribution at time $t$)
+
+4. **`cy` (Cumulative State Probability)**: Integrated state probability from time 0 to each time point
+   - $\text{cy}_t = \int_0^t x \exp(Qu) \, du$ (cumulative time spent in each state)
+
+Example usage:
 ```julia
+Q = [
+    -1.0  1.0  0.0;
+     0.0 -0.1  0.1;
+     3.0  0.5 -3.5
+]
+
+# Initial state probability (start from state 0)
 x = Float64[1, 0, 0]
+
+# Reward rates for each state
 r = Float64[1, 1, 0]
+
+# Time points
 ts = LinRange(0.0, 10.0, 10)
+
+# Compute transient reward analysis
 irwd, crwd, y, cy = tran(Q, x, r, ts)
+
+# irwd[i]  - instantaneous reward at ts[i]
+# crwd[i]  - cumulative reward from 0 to ts[i]
+# y[i]     - state probability vector at ts[i]
+# cy[i]    - cumulative time spent in each state up to ts[i]
 ```
+
+This is useful for computing performance metrics such as:
+- Expected cost/profit over a time interval
+- Cumulative system availability or unavailability
+- Expected reward from different operational modes
 
 ## Special Matrix and Uniformed Transition Probability Matrix
 
@@ -276,3 +361,192 @@ U, qv = unif(T)
 xidash = xi / qv
 qstpower(U, xidash)
 ```
+
+## Examples
+
+### Steady-state analysis
+
+#### Example 1: Dense kernel with the GTH algorithm
+Solve the stationary distribution of a 2-state CTMC.
+
+```julia
+using SparseArrays
+using NMarkov
+
+# parameters
+λ = 1 / 100_000
+μ = 1 / 10
+
+# infinitesimal generator (dense)
+Q = [
+    -λ   λ
+     μ  -μ
+]
+
+# GTH algorithm (dense matrices only)
+gth(Q)
+
+# error case (sparse matrix is not allowed)
+gth(sparse(Q))
+```
+
+#### Example 2: Sparse kernel with Gauss–Seidel (GS) algorithm
+Birth–death process with finite capacity (states S₀…Sₙ).
+
+```julia
+using SparseArrays
+using ZeroOrigin
+using NMarkov
+
+λ = 1.0
+μ = 2.0
+N = 10
+
+Q = spzeros(N+1, N+1)
+@origin (Q => 0) begin
+    Q[0,0] = -λ
+    Q[0,1] = λ
+    for i = 1:N-1
+        Q[i,i+1] = λ
+        Q[i,i-1] = μ
+        Q[i,i] = -(λ + μ)
+    end
+    Q[N,N-1] = μ
+    Q[N,N] = -μ
+end
+
+# GS algorithm for sparse kernels
+x, = stgs(Q)
+
+# error case (dense matrix not allowed)
+stgs(Matrix(Q))
+```
+
+#### Power method
+
+```julia
+P, qv = unif(Q)
+x, = stpower(P)
+```
+
+#### Example 3: Sensitivity of the stationary distribution
+
+Compute first derivatives of the stationary distribution with respect to parameters λ, μ.
+
+```julia
+# stationary vector
+π, = stgs(Q)
+
+# derivative w.r.t. λ
+dQλ = spzeros(N+1, N+1)
+@origin (dQλ => 0) begin
+    dQλ[0,0] = -1
+    dQλ[0,1] = 1
+    for i = 1:N-1
+        dQλ[i,i+1] = 1
+        dQλ[i,i] = -1
+    end
+end
+
+# derivative w.r.t. μ
+dQμ = spzeros(N+1, N+1)
+@origin (dQμ => 0) begin
+    for i = 1:N-1
+        dQμ[i,i-1] = 1
+        dQμ[i,i] = -1
+    end
+    dQμ[N,N-1] = 1
+    dQμ[N,N] = -1
+end
+
+dxλ, = stsengs(Q, π, dQλ' * π)
+dxμ, = stsengs(Q, π, dQμ' * π)
+```
+
+#### Example 4: Quasi-stationary distribution
+
+```julia
+λ = 1.0
+μ = 2.0
+N = 10
+
+Q = spzeros(N+1, N+1)
+@origin (Q => 0) begin
+    Q[0,0] = -λ
+    Q[0,1] = λ
+    for i = 1:N-1
+        Q[i,i+1] = λ
+        Q[i,i-1] = μ
+        Q[i,i] = -(λ + μ)
+    end
+    Q[N,N-1] = μ
+    Q[N,N] = -(λ + μ)
+end
+
+# exit rate
+ξ = zeros(N+1)
+@origin ξ=>0 begin
+    ξ[N] = λ
+end
+
+# GS-type method
+x, γ, = qstgs(Q, ξ)
+
+# power method
+P, = unif(Q)
+x, γ, = qstpower(P, ξ)
+```
+
+### Transient analysis
+
+#### Transient probabilities
+
+```julia
+λ = 1.0
+μ = 2.0
+N = 10
+
+Q = spzeros(N+1, N+1)
+@origin (Q => 0) begin
+    Q[0,0] = -λ
+    Q[0,1] = λ
+    for i = 1:N-1
+        Q[i,i+1] = λ
+        Q[i,i-1] = μ
+        Q[i,i] = -(λ + μ)
+    end
+    Q[N,N-1] = μ
+    Q[N,N] = -μ
+end
+
+x0 = zeros(N+1)
+@origin x0=>0 begin
+    x0[0] = 1.0
+end
+
+# single time
+xt = mexp(Q, x0, 1.0, transpose=:T)
+
+# time sequence
+ts = LinRange(0.0, 10.0, 100)
+xt = mexp(Q, x0, ts, transpose=:T)
+```
+
+### Expected rewards
+
+```julia
+using Plots
+
+# reward: expected number of customers
+r = Float64[i for i = 0:N]
+
+ts = LinRange(0.0, 50.0, 100)
+irwd, crwd, xt, cxt = tran(Q, x0, r, ts)
+
+plot(ts, irwd)
+```
+
+## License
+
+This package is distributed under the MIT License. See LICENSE file for details.
+
