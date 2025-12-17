@@ -1,3 +1,5 @@
+using NMarkov
+
 @testset "tran 1" begin
     Q = [
         -3.0 2.0 1.0;

@@ -1,4 +1,5 @@
 
+
 """
 @axpy
 @ascal
@@ -77,4 +78,79 @@ function itime(t::AbstractVector{Tv}) where Tv
         end
     end
     return dt, maxt
+end
+
+"""
+eye(n, ::Type{Tv} = Float64)::Matrix{Tv}
+eye(A::AbstractMatrix, ::Type{Tv} = Float64)::Matrix{Tv}
+
+Make an indentity matrix
+"""
+function eye(n, ::Type{Tv} = Float64)::Matrix{Tv} where {Tv}
+    m = zeros(Tv, n,n)
+    @inbounds for i = 1:n
+        m[i,i] = Tv(1)
+    end
+    m
+end
+
+function eye(A::AbstractMatrix, ::Type{Tv} = Float64)::Matrix{Tv} where {Tv}
+    eye(size(A)[1])
+end
+
+"""
+Uniformed Matrix for CTMC
+"""
+
+macro unif(Q, ufact)
+    expr = quote
+        qv = maximum(abs.(spdiag($Q))) * $ufact
+        if iszero(qv)
+            qv = 1.0e-12
+        end
+        P = $Q / qv
+        d = spdiag(P)
+        d .+= 1
+        (P, qv)
+    end
+    esc(expr)
+end
+
+"""
+unif(Q::AbstractSparseM{Tv,Ti}, ufact::Tv = 1.01)
+unif(Q::Matrix{Tv}, ufact::Tv = 1.01)
+
+Get an uniformed transition probability matrix from a CTMC kernel.
+
+   P = I + Q / qv
+   qv = max(abs(diag(Q))) * ufact
+
+Parameters:
+- Q: CTMC Kernel
+- ufact: uniformization factor
+Return value:
+A tuple of
+- P: The uniformed transition probability matrix
+- qv: The maximum event rate
+
+"""
+
+function unif(Q::SparseMatrixCSC{Tv,Ti}, ufact::Tv = 1.01) where {Tv, Ti}
+    @unif(Q, ufact)
+end
+
+function unif(Q::SparseCSR{Tv,Ti}, ufact::Tv = 1.01) where {Tv, Ti}
+    @unif(Q, ufact)
+end
+
+function unif(Q::SparseCSC{Tv,Ti}, ufact::Tv = 1.01) where {Tv, Ti}
+    @unif(Q, ufact)
+end
+
+function unif(Q::SparseCOO{Tv,Ti}, ufact::Tv = 1.01) where {Tv, Ti}
+    @unif(Q, ufact)
+end
+
+function unif(Q::Matrix{Tv}, ufact::Tv = 1.01) where {Tv}
+    @unif(Q, ufact)
 end

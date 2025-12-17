@@ -1,11 +1,7 @@
 using NMarkov
 using Test
-using Printf
-using Distributions
-using SparseMatrix
-using SparseArrays
 
-import NMarkov: rightbound, poipmf, cpoipmf, convunifstep!
+include("test_sparsematrix.jl")
 
 include("test_stationary.jl")
 
