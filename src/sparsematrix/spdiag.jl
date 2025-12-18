@@ -1,3 +1,19 @@
+"""
+    Diag{Tv,Ti}
+
+Type representing the diagonal elements of a matrix with efficient storage.
+
+### Fields
+- `index::Vector{Ti}`: indices into the value array for diagonal positions (0 if element is not present)
+- `val::Vector{Tv}`: actual values from the source matrix
+
+### Example
+```julia
+A = Matrix([1.0 0.0; 0.0 2.0])
+d = spdiag(A)  # Extract diagonal
+d[1]  # Returns 1.0
+```
+"""
 struct Diag{Tv <: AbstractFloat, Ti <: Integer} <: AbstractArray{Tv,1}
     index::Vector{Ti}
     val::Vector{Tv}

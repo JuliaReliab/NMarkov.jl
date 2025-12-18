@@ -4,6 +4,20 @@ import LinearAlgebra.BLAS
 
 # blas level 1
 
+"""
+    scal!(a, A)
+
+Scale all elements of array A by scalar value a: ``A := a * A``.
+
+Works with vectors, dense matrices, and sparse matrices (SparseCSR, SparseCSC, SparseCOO, SparseMatrixCSC).
+
+### Arguments
+- `a`: scalar multiplier
+- `A`: array/matrix to scale (modified in-place)
+
+### Returns
+- Scaled array `A`
+"""
 for Tv in [:Float64]
     @eval begin
         ## Matrix

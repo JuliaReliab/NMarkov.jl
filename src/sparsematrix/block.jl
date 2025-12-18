@@ -72,9 +72,22 @@ end
 """
      block(A)
 
-Create a BlockCOO from a given matrix A. The matrix A is a matrix whose element is a value of AbstractMatrix.
+Create a BlockCOO from a given sparse matrix A whose elements are matrices (block matrix).
+
+### Input
+- `A`: A sparse matrix (SparseCOO, SparseCSR, SparseCSC, or SparseMatrixCSC) with matrix-valued elements
+
+### Returns
+- `BlockCOO`: Block coordinate format representation
+
+### Example
+```julia
+# Create a block sparse matrix
+elem = [(1, 1, [1.0 0.0; 0.0 1.0]), (2, 2, [2.0 0.0; 0.0 2.0])]
+A = BlockCOO(2, 2, elem)
+```
 """
-block(A::SparseCOO{<:AbstractMatrix{Tv},Ti}) where {Tv,Ti} = BlockCOO{Tv,Ti}(A.m, A.n, copy(A.val), copy(A.rowind), copy(A.colind))
+function block(A::SparseCOO{<:AbstractMatrix{Tv},Ti}) where {Tv,Ti} = BlockCOO{Tv,Ti}(A.m, A.n, copy(A.val), copy(A.rowind), copy(A.colind))
 block(A::SparseCSR{<:AbstractMatrix{Tv},Ti}) where {Tv,Ti} = block(SparseCOO(A))
 block(A::SparseCSC{<:AbstractMatrix{Tv},Ti}) where {Tv,Ti} = block(SparseCOO(A))
 block(A::SparseArrays.SparseMatrixCSC{<:AbstractMatrix{Tv},Ti}) where {Tv,Ti} = block(SparseCOO(A))

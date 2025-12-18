@@ -4,6 +4,24 @@ import LinearAlgebra.BLAS
 
 # blas level 2
 
+"""
+    gemv!(trans::Char, alpha, A, x, beta, y)
+
+Update `y` with matrix-vector multiplication: ``y := \\alpha * A^{trans} * x + \\beta * y``.
+
+Supports sparse matrix formats (SparseCSR, SparseCSC, SparseCOO) as well as standard Matrix types.
+
+### Arguments
+- `trans::Char`: 'N' for non-transpose or 'T' for transpose
+- `alpha`: scalar multiplier
+- `A`: matrix (sparse or dense)
+- `x`: vector
+- `beta`: scalar multiplier for y
+- `y`: output vector (modified in-place)
+
+### Returns
+- Updated vector `y`
+"""
 for Tv in [:Float64]
     @eval begin
 
