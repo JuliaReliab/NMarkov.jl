@@ -1,4 +1,5 @@
 import LinearAlgebra.BLAS
+import Base: fill!
 
 ## overload LinearAlgebra.BLAS.scal!
 
