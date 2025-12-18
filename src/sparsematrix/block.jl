@@ -87,10 +87,21 @@ elem = [(1, 1, [1.0 0.0; 0.0 1.0]), (2, 2, [2.0 0.0; 0.0 2.0])]
 A = BlockCOO(2, 2, elem)
 ```
 """
-function block(A::SparseCOO{<:AbstractMatrix{Tv},Ti}) where {Tv,Ti} = BlockCOO{Tv,Ti}(A.m, A.n, copy(A.val), copy(A.rowind), copy(A.colind))
-block(A::SparseCSR{<:AbstractMatrix{Tv},Ti}) where {Tv,Ti} = block(SparseCOO(A))
-block(A::SparseCSC{<:AbstractMatrix{Tv},Ti}) where {Tv,Ti} = block(SparseCOO(A))
-block(A::SparseArrays.SparseMatrixCSC{<:AbstractMatrix{Tv},Ti}) where {Tv,Ti} = block(SparseCOO(A))
+function block(A::SparseCOO{<:AbstractMatrix{Tv},Ti}) where {Tv,Ti}
+    BlockCOO{Tv,Ti}(A.m, A.n, copy(A.val), copy(A.rowind), copy(A.colind))
+end
+
+function block(A::SparseCSR{<:AbstractMatrix{Tv},Ti}) where {Tv,Ti}
+    block(SparseCOO(A))
+end
+
+function block(A::SparseCSC{<:AbstractMatrix{Tv},Ti}) where {Tv,Ti}
+    block(SparseCOO(A))
+end
+
+function block(A::SparseArrays.SparseMatrixCSC{<:AbstractMatrix{Tv},Ti}) where {Tv,Ti}
+    block(SparseCOO(A))
+end
 
 SparseCSR(A::BlockCOO{Tv,Ti}) where {Tv,Ti} = _tocsr(_tocoo(A))
 SparseCSC(A::BlockCOO{Tv,Ti}) where {Tv,Ti} = _tocsc(_tocoo(A))
