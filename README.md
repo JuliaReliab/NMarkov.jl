@@ -1,6 +1,6 @@
 # NMarkov
 
-[![Build Status](https://travis-ci.com/okamumu/NMarkov.jl.svg?branch=master)](https://travis-ci.com/okamumu/NMarkov.jl)
+[![CI](https://github.com/okamumu/NMarkov.jl/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/okamumu/NMarkov.jl/actions/workflows/ci.yml)
 [![Codecov](https://codecov.io/gh/okamumu/NMarkov.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/okamumu/NMarkov.jl)
 NMarkov.jl is a package for numerical computation of Markov chains.
 
@@ -32,9 +32,10 @@ For examples, see the `examples/` directory which contains runnable scripts for:
 - Uniformized matrices
 
 You can run examples with:
-julia --project=. examples/02_transient_analysis.jl
-# ... and so on
 ```
+julia --project=. examples/02_transient_analysis.jl
+```
+... and so on
 
 ## Continuous-Time Markov Chain (CTMC)
 

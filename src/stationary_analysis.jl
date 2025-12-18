@@ -1,22 +1,50 @@
+"""
+Stationary distribution computation for CTMC
+
+This module provides algorithms for computing the stationary (steady-state) distribution of continuous-time Markov chains.
+Supported methods include:
+- GTH algorithm (direct method for dense matrices)
+- Gauss-Seidel/SOR iterative methods (for sparse matrices)
+- Power method (for discrete-time Markov chains)
+"""
 
 """
-Stationary vector with iterative methods
+    GTH (Grassmann-Taksar-Heyman) algorithm
+
+Direct method for computing the stationary distribution of CTMC.
+Suitable for dense infinitesimal generators.
+
+Complexity: O(n³)
 """
 
 """
-GTH algorithm
-"""
+    gth!(Q)
 
-"""
-gth!(Q::Matrix{Tv})
-gth(Q::Matrix{Tv})
+Compute the stationary distribution of a CTMC using the GTH algorithm (in-place).
 
-Compute the stationary vector for the CTMC with kernel Q with GTH algorithm.
-Both of gth! and gth return a vector.
-In gth!, the matrix Q is used as a workspace.
-Note that Q does not have any absorbing state.
-"""
+The matrix Q is used as workspace and is modified during computation.
 
+### Arguments
+- `Q::Matrix`: Infinitesimal generator matrix (must be square)
+
+### Returns
+- `pi::Vector`: Stationary probability vector (normalized to sum to 1)
+
+### Algorithm
+- GTH (Grassmann-Taksar-Heyman) direct method
+- Works for dense matrices
+- Requires Q to have no absorbing states
+
+### Example
+```julia
+Q = [-2.0 2.0; 1.0 -1.0]
+pi = gth!(copy(Q))  # Use copy since Q is modified
+```
+
+### Notes
+- This in-place version modifies Q for efficiency
+- Use `gth(Q)` for non-destructive computation
+"""
 function gth!(Q::Matrix{Tv})::Vector{Tv} where {Tv}
     @inbounds begin
         m, n = size(Q)
@@ -53,21 +81,65 @@ function gth!(Q::Matrix{Tv})::Vector{Tv} where {Tv}
     end
 end
 
+"""
+    gth(Q)
+
+Compute the stationary distribution of a CTMC using the GTH algorithm.
+
+This non-destructive version makes a copy of Q before computation.
+
+### Arguments
+- `Q::Matrix`: Infinitesimal generator matrix (must be square)
+
+### Returns
+- `pi::Vector`: Stationary probability vector (normalized to sum to 1)
+
+### Algorithm
+- GTH (Grassmann-Taksar-Heyman) direct method
+- Works for dense matrices
+- Suitable for small to medium-sized matrices
+
+### Example
+```julia
+Q = [-2.0 2.0; 1.0 -1.0]
+pi = gth(Q)
+```
+
+### Notes
+- Original matrix Q is not modified (makes a copy internally)
+- Use `gth!(copy(Q))` if you want to avoid the extra copy
+"""
 function gth(Q::Matrix{Tv}) where {Tv}
     gth!(copy(Q))
 end
 
 """
-gth!(Q::Matrix{Tv}, index::Vector{Ti})
-gth(Q::Matrix{Tv}, index::Vector{Ti})
+    gth!(Q, index)
 
-Compute the stationary vector for the CTMC with kernel Q with GTH algorithm.
-Both of gth! and gth return a vector.
-The CTMC states are permutated with an index vector.
-In gth!, the matrix Q is used as a workspace.
-Note that Q does not have any absorbing state.
+Compute the stationary distribution of a CTMC using the GTH algorithm with state reordering (in-place).
+
+Allows computation with states reordered according to an index vector.
+
+### Arguments
+- `Q::Matrix`: Infinitesimal generator matrix (must be square)
+- `index::Vector{Int}`: Permutation vector specifying state reordering
+
+### Returns
+- `pi::Vector`: Stationary probability vector (normalized to sum to 1)
+
+### Notes
+- States are accessed in the order specified by the index vector
+- Useful for reducing numerical errors by processing states in a specific order
+- Q is modified as a workspace
+- Requires no absorbing states
+
+### Example
+```julia
+Q = [-2.0 2.0; 1.0 -1.0]
+index = [2, 1]  # Process state 2 before state 1
+pi = gth!(copy(Q), index)
+```
 """
-
 function gth!(Q::Matrix{Tv}, index::Vector{Ti})::Vector{Tv} where {Tv,Ti}
     m, n = size(Q)
     @assert m == n
@@ -102,17 +174,61 @@ function gth!(Q::Matrix{Tv}, index::Vector{Ti})::Vector{Tv} where {Tv,Ti}
     x /= sum(x)
 end
 
+"""
+    gth(Q, index)
+
+Compute the stationary distribution of a CTMC using the GTH algorithm with state reordering.
+
+Non-destructive version that makes a copy of Q before computation.
+
+### Arguments
+- `Q::Matrix`: Infinitesimal generator matrix (must be square)
+- `index::Vector{Int}`: Permutation vector specifying state reordering
+
+### Returns
+- `pi::Vector`: Stationary probability vector (normalized to sum to 1)
+
+### Notes
+- Original matrix Q is not modified
+- States are accessed in the order specified by the index vector
+- Useful for improving numerical stability
+
+### Example
+```julia
+Q = [-2.0 2.0; 1.0 -1.0]
+index = [2, 1]
+pi = gth(Q, index)
+```
+"""
 function gth(Q::Matrix{Tv}, index::Vector{Ti}) where {Tv, Ti}
     gth!(copy(Q), index)
 end
 
 """
-stguess(Q::MatT, ::Type{Tv} = Float64)::Vector{Tv}
+    stguess(Q, Tv = Float64)
 
-Get a vector which is guessed as the stationary vector of CTMC.
-This is used as the initial vector for the iterative methods.
+Generate an initial guess for the stationary distribution.
+
+Provides a reasonable starting vector for iterative methods based on the diagonal elements of Q.
+
+### Arguments
+- `Q`: Matrix (CTMC kernel or transition matrix)
+- `Tv::Type`: Element type (default: Float64)
+
+### Returns
+- `x0::Vector`: Initial guess vector (normalized to sum to 1)
+
+### Notes
+- Uses diagonal elements of Q to construct the guess
+- Typically provides faster convergence in iterative methods
+- Normalized to be a probability distribution
+
+### Example
+```julia
+Q = [-2.0 2.0; 1.0 -1.0]
+x0 = stguess(Q)
+```
 """
-
 function stguess(Q::MatT, ::Type{Tv} = Float64)::Vector{Tv} where {Tv,MatT}
     m, n = size(Q)
     @assert m == n
@@ -124,24 +240,40 @@ function stguess(Q::MatT, ::Type{Tv} = Float64)::Vector{Tv} where {Tv,MatT}
 end
 
 """
-stgs(Q::SparseCSC{Tv,Ti}, x0::Vector{Tv}=stguess(Q,Tv); maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6))
+    stgs(Q; x0 = stguess(Q, Tv), maxiter = 5000, steps = 20, rtol = 1.0e-6)
 
-Get a stationary vector of CTMC.
+Compute the stationary distribution of a CTMC using Gauss-Seidel iterative method.
 
-Parameters:
-- Q: CTMC Kernal
-- x0: Initial vector for iteration
-- maxiter: The maximum number of iteration. The algorithm stops when the number of iteration becomes maxiter.
-- steps: The number of steps to check the convergence
-- rtol: the tolerance error. When the relative errors of two successive vectors with steps attains rtol, the algorithm stops.
-Return value:
-A tuple of
-- x: stationary vector
-- conv: A boolean whether the algorithm converges or not
-- iter: The number of iterations
-- rerror: The relative error when the algorithm stops
+Supports both `SparseMatrixCSC` and `SparseCSC` matrix types.
+
+### Arguments
+- `Q`: Infinitesimal generator (sparse matrix)
+- `x0::Vector`: Initial guess vector (default: `stguess(Q)`)
+- `maxiter::Int`: Maximum number of iterations (default: 5000)
+- `steps::Int`: Check convergence every n steps (default: 20)
+- `rtol::Float`: Relative error tolerance (default: 1.0e-6)
+
+### Returns
+- `x::Vector`: Stationary probability vector
+- `conv::Bool`: Whether the algorithm converged
+- `iter::Int`: Number of iterations performed
+- `rerror::Float`: Final relative error
+
+### Algorithm
+- Gauss-Seidel successive iteration
+- Suitable for sparse matrices
+- Converges for ergodic CTMCs
+
+### Example
+```julia
+Q = SparseCSC(...)
+pi, conv, iter, err = stgs(Q, maxiter=5000)
+```
+
+### Notes
+- Convergence speed depends on matrix conditioning
+- Use `steps` parameter to balance frequency of convergence checks
 """
-
 function stgs(Q::SparseMatrixCSC{Tv,Ti}; x0::Vector{Tv}=stguess(Q,Tv),
         maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
     stgs(SparseCSC(Q), x0=x0, maxiter=maxiter, steps=steps, rtol=rtol)
@@ -178,24 +310,38 @@ function stgs(Q::SparseCSC{Tv,Ti}; x0::Vector{Tv}=stguess(Q,Tv),
 end
 
 """
-stpower(P::AbstractMatrix{Tv}, x0::Vector{Tv}=stguess(Q,Tv); maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6))
+    stpower(P; x0 = stguess(P, Tv), maxiter = 5000, steps = 20, rtol = 1.0e-6)
 
-Get a stationary vector of DTMC with power method.
+Compute the stationary distribution of a DTMC using the power method.
 
-Parameters:
-- P: The transition probability matrix for DTMC
-- x0: Initial vector for iteration
-- maxiter: The maximum number of iteration. The algorithm stops when the number of iteration becomes maxiter.
-- steps: The number of steps to check the convergence
-- rtol: the tolerance error. When the relative errors of two successive vectors with steps attains rtol, the algorithm stops.
-Return value:
-A tuple of
-- x: stationary vector
-- conv: A boolean whether the algorithm converges or not
-- iter: The number of iterations
-- rerror: The relative error when the algorithm stops
+### Arguments
+- `P::AbstractMatrix`: Transition probability matrix for a discrete-time Markov chain
+- `x0::Vector`: Initial guess vector (default: `stguess(P)`)
+- `maxiter::Int`: Maximum number of iterations (default: 5000)
+- `steps::Int`: Check convergence every n steps (default: 20)
+- `rtol::Float`: Relative error tolerance (default: 1.0e-6)
+
+### Returns
+- `x::Vector`: Stationary probability vector
+- `conv::Bool`: Whether the algorithm converged
+- `iter::Int`: Number of iterations performed
+- `rerror::Float`: Final relative error
+
+### Algorithm
+- Power method (iteration with transpose of transition matrix)
+- Suitable for discrete-time Markov chains
+- Converges for aperiodic, irreducible DTMCs
+
+### Example
+```julia
+P = [0.9 0.1; 0.2 0.8]
+pi, conv, iter, err = stpower(P, maxiter=5000)
+```
+
+### Notes
+- Convergence depends on the spectral gap of P
+- DTMC equivalent of `stgs` for CTMCs
 """
-
 function stpower(P::AbstractMatrix{Tv}; x0::Vector{Tv}=stguess(P,Tv),
     maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv}
     m, n = size(P)
@@ -227,28 +373,48 @@ function stpower(P::AbstractMatrix{Tv}; x0::Vector{Tv}=stguess(P,Tv),
 end
 
 """
-gsstep!(x::Vector{Tv}, Q::SparseMatrix.SparseCSC{Tv,Ti}, b::Vector{Tv}; alpha::Tv=Tv(1), sigma::Tv=Tv(0), omega::Tv=Tv(1))::Nothing
-gsstep!(x::Vector{Tv}, Q::SparseMatrix.SparseCSR{Tv,Ti}, b::Vector{Tv}; alpha::Tv=Tv(1), sigma::Tv=Tv(0), omega::Tv=Tv(1))::Nothing
+    gsstep!(x, Q, b; alpha = 1, sigma = 0, omega = 1)
 
-GS (Gauss-Seidal) or SOR (Successive Over Relaxation) step for the following linear equation
+Perform one Gauss-Seidel or SOR iteration step for linear systems.
 
-    alpha * trans(A - sigma I) * x = b
+Solves the system: `alpha * (A - sigma*I) * x = b` using Gauss-Seidel or SOR method.
 
-    notrans:
-        x := (D/omega + L)^(-1) (b/alpha - (U - D (1-omega)/omega - sigma I) * x)
-    trans:
-        x := (D/omega + tr(U))^(-1) (b/alpha - (tr(L) - D (1-omega)/omega - sigma I) * x)
-        
-    where
-        A: square matrix
-        x: vector (in; initial vector for the step, out; updated vector)
-        b: constant vector
+### Arguments
+- `x::Vector`: Solution vector (modified in-place)
+- `Q`: Coefficient matrix (SparseCSC or SparseCSR)
+- `b::Vector`: Right-hand side vector
+- `alpha::Float`: Scaling factor (default: 1.0)
+- `sigma::Float`: Shift parameter (default: 0.0, use for eigenvalue problems)
+- `omega::Float`: Over-relaxation parameter (default: 1.0, use 1.0 for GS, 1.0 < ω < 2.0 for SOR)
 
-Note that notrans and trans are determined by the type of matrix Q.
-If Q is SparseCSC, gstep! provides the step for trans.
-If Q is SparseCSR, gsstep! provides the step for notrans.
+### Algorithm Details
+For **SparseCSC** (column-wise storage):
+- Computes: `x[j] := ω/d_j * (b[j]/α - Σ_{i≠j} Q[i,j]*x[i] + σ*x[j]) + (1-ω)*x[j]`
+
+For **SparseCSR** (row-wise storage):
+- Computes: `x[i] := ω/d_i * (b[i]/α - Σ_{j≠i} Q[i,j]*x[j] + σ*x[i]) + (1-ω)*x[i]`
+
+### Returns
+- Nothing (modifies `x` in-place)
+
+### Notes
+- Uses the diagonal element as `d_j` or `d_i`
+- Suitable for solving the system `π*Q = 0` (stationary distribution)
+- SparseCSC format processes column-wise
+- SparseCSR format processes row-wise
+- SOR improves convergence when properly tuned
+
+### Example
+```julia
+Q = SparseCSC(...)
+b = zeros(n)
+x = ones(n) ./ n  # Initial guess
+for step = 1:100
+    gsstep!(x, Q, b, alpha=1.0, sigma=0.0)
+    x ./= sum(x)
+end
+```
 """
-
 function gsstep!(x::Vector{Tv}, Q::SparseCSC{Tv,Ti}, b::Vector{Tv};
         alpha::Tv=Tv(1), sigma::Tv=Tv(0), omega::Tv=Tv(1))::Nothing where {Tv, Ti}
     m, n = size(Q)

@@ -1,16 +1,32 @@
 # Poisson
 
 """
-poipmf!(lambda, prob; left = 0, right = length(prob)-1+left)
-poipmf(lambda, right; left = 0)
+    poipmf!(lambda, prob; left = 0, right = length(prob)-1+left)
 
-Compute the p.m.f. of Poisson distribution with mean lambda.
-`left` and `right` are the domain of Poisson distribution.
-They should be choosen so that the total probability in the domain becomes 1.
-In `poipmf!``, the p.m.f. is saved to the vector `prob`.
-The right can be obtained from `rightbound`.
-The retuen value is the normalizing constant so that the total sum of `prob` is 1, called the weight.
-`poipmf` returns a tuple of (weight, prob).
+Compute the probability mass function (p.m.f.) of Poisson distribution in-place.
+
+The p.m.f. values are stored directly into the provided vector `prob` for efficiency.
+
+### Arguments
+- `lambda::Number`: Mean parameter of Poisson distribution
+- `prob::Vector`: Output vector where p.m.f. values are stored
+- `left::Integer`: Left boundary of the domain (default: 0)
+- `right::Integer`: Right boundary of the domain
+
+### Returns
+- `weight`: Normalizing constant ensuring the sum of probabilities equals 1
+
+### Notes
+- This in-place version is more memory-efficient than `poipmf`
+- The domain [left, right] should be chosen to capture significant probability mass
+- Use `rightbound()` to automatically compute an appropriate right boundary
+
+### Example
+```julia
+lambda = 5.0
+prob = Vector{Float64}(undef, rightbound(lambda) + 1)
+weight = poipmf!(lambda, prob, left=0, right=rightbound(lambda))
+```
 """
 
 @origin (prob => left) function poipmf!(lambda::Tv, prob::Vector{Tv};
@@ -49,6 +65,33 @@ The retuen value is the normalizing constant so that the total sum of `prob` is 
     end
 end
 
+"""
+    poipmf(lambda, right; left = 0)
+
+Compute the probability mass function (p.m.f.) of Poisson distribution and return new vectors.
+
+This function allocates new vectors and returns both the p.m.f. values and normalizing weight.
+
+### Arguments
+- `lambda::Number`: Mean parameter of Poisson distribution
+- `right::Integer`: Right boundary of the domain
+- `left::Integer`: Left boundary of the domain (default: 0)
+
+### Returns
+- `weight`: Normalizing constant ensuring the sum of probabilities equals 1
+- `prob`: Vector of p.m.f. values in the domain [left, right]
+
+### Notes
+- This allocating version is convenient but less memory-efficient than `poipmf!`
+- Use `poipmf!` for in-place computation when performance is critical
+- Use `rightbound()` to automatically compute an appropriate right boundary
+
+### Example
+```julia
+lambda = 5.0
+weight, prob = poipmf(lambda, rightbound(lambda), left=0)
+```
+"""
 function poipmf(lambda::Tv, right::Ti; left::Ti = 0) where {Tv, Ti}
     prob = Vector{Tv}(undef, right-left+1)
     weight = poipmf!(lambda, prob, left=left, right=right)
@@ -56,18 +99,36 @@ function poipmf(lambda::Tv, right::Ti; left::Ti = 0) where {Tv, Ti}
 end
 
 """
-cpoipmf!(lambda, prob, cprob; left = 0, right = length(prob)-1+left)
-cpoipmf(lambda, right; left = 0)
+    cpoipmf!(lambda, prob, cprob; left = 0, right = length(prob)-1+left)
 
-Compute the p.m.f. and complementary c.d.f. of Poisson distribution with mean lambda.
-`left` and `right` are the domain of Poisson distribution.
-They should be choosen so that the total probability in the domain becomes 1.
-In `cpoipmf!``, the p.m.f. and c.d.f. are stored to `prob` and `cprob`, respectively.
-The right can be obtained from `rightbound`.
-The retuen value is the normalizing constant so that the total sum of `prob` is 1, called the weight.
-`cpoipmf` returns a tuple of (weight, prob, cprob).
+Compute the p.m.f. and complementary c.d.f. of Poisson distribution in-place.
+
+Both p.m.f. and complementary c.d.f. values are stored directly into provided vectors for efficiency.
+
+### Arguments
+- `lambda::Number`: Mean parameter of Poisson distribution
+- `prob::Vector`: Output vector for p.m.f. values
+- `cprob::Vector`: Output vector for complementary c.d.f. values
+- `left::Integer`: Left boundary of the domain (default: 0)
+- `right::Integer`: Right boundary of the domain
+
+### Returns
+- `weight`: Normalizing constant ensuring probabilities sum to 1
+
+### Notes
+- This in-place version is more memory-efficient than `cpoipmf`
+- The complementary c.d.f. `cprob[k] = P(X > k)` is computed from the p.m.f.
+- Use `rightbound()` to automatically compute an appropriate right boundary
+
+### Example
+```julia
+lambda = 5.0
+right = rightbound(lambda)
+prob = Vector{Float64}(undef, right + 1)
+cprob = Vector{Float64}(undef, right + 1)
+weight = cpoipmf!(lambda, prob, cprob, left=0, right=right)
+```
 """
-
 @origin (prob => left, cprob => left) function cpoipmf!(lambda::Tv, prob::Vector{Tv}, cprob::Vector{Tv}; left::Ti = 0, right::Ti = length(prob)-1+left) where {Tv, Ti}
     weight::Tv = poipmf!(lambda, prob, left=left, right=right)
     @inbounds begin
@@ -79,6 +140,34 @@ The retuen value is the normalizing constant so that the total sum of `prob` is 
     end
 end
 
+"""
+    cpoipmf(lambda, right; left = 0)
+
+Compute the p.m.f. and complementary c.d.f. of Poisson distribution and return new vectors.
+
+This function allocates new vectors and returns both distributions and normalizing weight.
+
+### Arguments
+- `lambda::Number`: Mean parameter of Poisson distribution
+- `right::Integer`: Right boundary of the domain
+- `left::Integer`: Left boundary of the domain (default: 0)
+
+### Returns
+- `weight`: Normalizing constant ensuring probabilities sum to 1
+- `prob`: Vector of p.m.f. values in domain [left, right]
+- `cprob`: Vector of complementary c.d.f. values (P(X > k)) for each k
+
+### Notes
+- This allocating version is convenient but less memory-efficient than `cpoipmf!`
+- Use `cpoipmf!` for in-place computation when performance is critical
+- The complementary c.d.f. `cprob[k] = P(X > k)` is computed efficiently from the p.m.f.
+
+### Example
+```julia
+lambda = 5.0
+weight, prob, cprob = cpoipmf(lambda, rightbound(lambda), left=0)
+```
+"""
 function cpoipmf(lambda::Tv, right::Ti; left::Ti = 0) where {Tv, Ti}
     prob = Vector{Tv}(undef, right-left+1)
     cprob = Vector{Tv}(undef, right-left+1)
@@ -87,10 +176,33 @@ function cpoipmf(lambda::Tv, right::Ti; left::Ti = 0) where {Tv, Ti}
 end
 
 """
-rightbound(::Type{Ti} = Int, lambda::Tv, q::Tv = Tv(1.0e-8))
+    rightbound(lambda, q = 1.0e-8)
+    rightbound(Ti, lambda, q = 1.0e-8)
 
-Compute the rightbound of Poisson distribution with mean lambda.
-The rightbound finds a quantile so that the complementary c.d.f. becomes `q`.
+Compute the right boundary of the domain for Poisson distribution with mean lambda.
+
+This function finds the smallest integer k such that P(X > k) ≤ q, where X follows a Poisson distribution with mean lambda.
+This is useful for determining the appropriate domain for Poisson p.m.f. computations.
+
+### Arguments
+- `Ti::Type`: Integer type for return value (default: Int)
+- `lambda::Float`: Mean parameter of Poisson distribution
+- `q::Float`: Tail probability threshold (default: 1.0e-8)
+
+### Returns
+- Minimum value k such that the complementary c.d.f. P(X > k) ≤ q
+
+### Notes
+- For small lambda (< 3.0), uses direct summation for accuracy
+- For larger lambda, uses normal approximation for efficiency
+- Smaller q values give larger boundaries, capturing more of the distribution
+
+### Example
+```julia
+lambda = 5.0
+right = rightbound(lambda, 1.0e-8)  # Returns ≈ 16
+weight, prob = poipmf(lambda, right)
+```
 """
 
 function rightbound(lambda::Tv, q::Tv = Tv(1.0e-8))::Int where {Tv}
