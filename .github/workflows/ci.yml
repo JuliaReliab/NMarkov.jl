@@ -35,6 +35,7 @@ jobs:
       - name: Install dependencies
         run: |
           julia --project=. -e "using Pkg; Pkg.add(PackageSpec(url=\"https://github.com/JuliaReliab/DEQuadrature.jl.git\"))"
+          julia --project=. -e "using Pkg; Pkg.add(PackageSpec(url=\"https://github.com/JuliaReliab/NMarkov.jl.git\"))"
 
       - name: Build package
         uses: julia-actions/julia-buildpkg@v1
