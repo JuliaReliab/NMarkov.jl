@@ -1,35 +1,17 @@
 
 
 """
-@axpy
-@ascal
-@dot
+    @dot(x, y)
 
-BLAS Level 1 functions.
+Compute the dot product of vectors x and y.
+
+### Example
+```julia
+x = [1.0, 2.0, 3.0]
+y = [4.0, 5.0, 6.0]
+result = @dot(x, y)  # Returns 32.0
+```
 """
-
-# macro axpy(a, x, y)
-#     expr = quote
-#         let u = $(esc(a))
-#             for i in eachindex($(esc(x)))
-#                 @inbounds $(esc(y))[i] += u * $(esc(x))[i]
-#             end
-#         end
-#     end
-#     expr
-# end
-
-# macro scal(a, x)
-#     expr = quote
-#         let u = $(esc(a))
-#             for i in eachindex($(esc(x)))
-#                 @inbounds $(esc(x))[i] *= u
-#             end
-#         end
-#     end
-#     expr
-# end
-
 macro dot(x, y)
     expr = quote
         s = 0
@@ -41,12 +23,46 @@ macro dot(x, y)
     expr
 end
 
+"""
+    trans(transpose::Symbol)
+
+Convert transpose symbol to character for BLAS operations.
+
+### Arguments
+- `transpose::Symbol`: `:N` for non-transpose, `:T` for transpose
+
+### Returns
+- Character ('N' or 'T') for use in BLAS functions
+
+### Example
+```julia
+t = trans(:T)  # Returns 'T'
+```
+"""
 function trans(transpose::Symbol)
     transpose == :N && return 'N'
     transpose == :T && return 'T'
     nothing
 end
 
+"""
+    matmul!(transpose, alpha, A, B, beta, C)
+
+Wrapper function for matrix-vector or matrix-matrix multiplication.
+
+Performs: `C := alpha * A^transpose * B + beta * C`
+
+### Arguments
+- `transpose::Symbol`: `:N` for non-transpose, `:T` for transpose of A
+- `alpha`: Scalar multiplier
+- `A`: Matrix
+- `B`: Vector or Matrix
+- `beta`: Scalar multiplier for C
+- `C`: Output vector or matrix (modified in-place)
+
+### Notes
+This function dispatches to either `gemv!` or `gemm!` depending on B type.
+"""
 function matmul!(transpose::Symbol, alpha::Union{Tv,Bool}, A::AbstractMatrix{Tv}, B::AbstractMatrix{Tv}, beta::Union{Tv,Bool}, C::AbstractMatrix{Tv}) where Tv
     gemm!(trans(transpose), 'N', alpha, A, B, beta, C)
 end
@@ -56,16 +72,23 @@ function matmul!(transpose::Symbol, alpha::Union{Tv,Bool}, A::AbstractMatrix{Tv}
 end
 
 """
-itime(t)
+    itime(t)
 
-Get interval time from a given cumulative time vector t.
-The first element is t[1]
+Compute interval times from a cumulative time vector.
 
-Retuen value:
-dt: interval time vector
-maxt: maximum interval time
+### Arguments
+- `t::AbstractVector`: Cumulative time points where t[1] is the first time
+
+### Returns
+- `dt::Vector`: Interval times (differences between consecutive points)
+- `maxt::Number`: Maximum interval time
+
+### Example
+```julia
+t = [0.0, 1.0, 2.5, 4.0]
+dt, maxt = itime(t)  # dt = [0, 1.0, 1.5, 1.5], maxt = 1.5
+```
 """
-
 function itime(t::AbstractVector{Tv}) where Tv
     dt = similar(t)
     prev = Tv(0)
@@ -81,10 +104,18 @@ function itime(t::AbstractVector{Tv}) where Tv
 end
 
 """
-eye(n, ::Type{Tv} = Float64)::Matrix{Tv}
-eye(A::AbstractMatrix, ::Type{Tv} = Float64)::Matrix{Tv}
+    eye(n, ::Type{Tv} = Float64)
+    eye(A::AbstractMatrix, ::Type{Tv} = Float64)
 
-Make an indentity matrix
+Create an identity matrix.
+
+### Arguments
+- `n::Int`: Size of the identity matrix
+- `A::AbstractMatrix`: Matrix whose size is used to determine identity matrix size
+- `Tv::Type`: Element type (default: Float64)
+
+### Returns
+- Identity matrix of specified size and type
 """
 function eye(n, ::Type{Tv} = Float64)::Matrix{Tv} where {Tv}
     m = zeros(Tv, n,n)
@@ -99,9 +130,10 @@ function eye(A::AbstractMatrix, ::Type{Tv} = Float64)::Matrix{Tv} where {Tv}
 end
 
 """
-Uniformed Matrix for CTMC
-"""
+    Uniformed matrix for CTMC
 
+Internal macro for uniformization computation.
+"""
 macro unif(Q, ufact)
     expr = quote
         qv = maximum(abs.(spdiag($Q))) * $ufact
@@ -117,24 +149,27 @@ macro unif(Q, ufact)
 end
 
 """
-unif(Q::AbstractSparseM{Tv,Ti}, ufact::Tv = 1.01)
-unif(Q::Matrix{Tv}, ufact::Tv = 1.01)
+    unif(Q, ufact = 1.01)
 
-Get an uniformed transition probability matrix from a CTMC kernel.
+Get an uniformized transition probability matrix from a CTMC kernel.
 
-   P = I + Q / qv
-   qv = max(abs(diag(Q))) * ufact
+Computes: `P = I + Q / qv` where `qv = max(abs(diag(Q))) * ufact`
 
-Parameters:
-- Q: CTMC Kernel
-- ufact: uniformization factor
-Return value:
-A tuple of
-- P: The uniformed transition probability matrix
-- qv: The maximum event rate
+### Arguments
+- `Q`: CTMC kernel matrix (sparse or dense)
+- `ufact`: Uniformization factor (default: 1.01)
 
+### Returns
+- `P`: Uniformized transition probability matrix
+- `qv`: The uniformization rate (maximum event rate)
+
+### Supported Matrix Types
+- SparseMatrixCSC
+- SparseCSR
+- SparseCSC
+- SparseCOO
+- Matrix (dense)
 """
-
 function unif(Q::SparseMatrixCSC{Tv,Ti}, ufact::Tv = 1.01) where {Tv, Ti}
     @unif(Q, ufact)
 end

@@ -1,14 +1,17 @@
 """
     SparseELL1{Tv,Ti}
 
-Type that represents an ELL (Ellpack) format of sparse matrix from CSR format.
+Type that represents an ELL (Ellpack) format of sparse matrix from CSR (row-major) format.
 
-### Fileds
-- `m::Ti`: the number of rows whose type is Ti
-- `n::Ti`: the number of columns whose type is Ti
-- `k::Int`: the maximum number of non-zero elements in row
-- `idx::Matrix{Ti}`: a matrix of column indices. 0 indicates there is no corresponding elements.
-- `val::Matrix{Tv}`: a matrix of non-zero elements
+### Fields
+- `m::Ti`: the number of rows
+- `n::Ti`: the number of columns
+- `k::Int`: the maximum number of non-zero elements in any row
+- `idx::Matrix{Ti}`: matrix of column indices (0 indicates padding)
+- `val::Matrix{Tv}`: matrix of non-zero elements
+
+### Notes
+ELL format is efficient for SpMV operations when the number of non-zeros per row is regular.
 """
 struct SparseELL1{Tv,Ti}
     m::Ti
@@ -21,14 +24,17 @@ end
 """
     SparseELL2{Tv,Ti}
 
-Type that represents an ELL (Ellpack) format of sparse matrix from CSC format.
+Type that represents an ELL (Ellpack) format of sparse matrix from CSC (column-major) format.
 
-### Fileds
-- `m::Ti`: the number of rows whose type is Ti
-- `n::Ti`: the number of columns whose type is Ti
-- `k::Int`: the maximum number of non-zero elements in column
-- `idx::Matrix{Ti}`: a matrix of row indices. 0 indicates there is no corresponding elements.
-- `val::Matrix{Tv}`: a matrix of non-zero elements
+### Fields
+- `m::Ti`: the number of rows
+- `n::Ti`: the number of columns
+- `k::Int`: the maximum number of non-zero elements in any column
+- `idx::Matrix{Ti}`: matrix of row indices (0 indicates padding)
+- `val::Matrix{Tv}`: matrix of non-zero elements
+
+### Notes
+ELL format is efficient for SpMV operations when the number of non-zeros per column is regular.
 """
 struct SparseELL2{Tv,Ti}
     m::Ti
@@ -39,13 +45,21 @@ struct SparseELL2{Tv,Ti}
 end
 
 """
-    SparseELL1(A::Matrix{Tv}) where Tv
-    SparseELL1(A::SparseCSR{Tv,Ti}) where {Tv,Ti}
-    SparseELL1(A::SparseCSC{Tv,Ti}) where {Tv,Ti}
-    SparseELL1(A::SparseCOO{Tv,Ti}) where {Tv,Ti}
-    SparseELL1(A::SparseArrays.SparseMatrixCSC{Tv,Ti}) where {Tv,Ti}
+    SparseELL1(A)
 
-Create a sparse matrix with ELL format (row-based).
+Create a sparse matrix with ELL format from row-based structure.
+
+### Input
+- `A`: A matrix in various formats (Matrix, SparseCSR, SparseCSC, SparseCOO, or SparseMatrixCSC)
+
+### Returns
+- `SparseELL1{Tv,Ti}`: ELL format sparse matrix
+
+### Example
+```julia
+A = SparseCSR(...)
+ell = SparseELL1(A)  # Convert to row-based ELL format
+```
 """
 function SparseELL1(A::SparseCSR{Tv,Ti}) where {Tv,Ti}
     m = A.m
@@ -65,13 +79,21 @@ function SparseELL1(A::SparseCSR{Tv,Ti}) where {Tv,Ti}
 end
 
 """
-    SparseELL2(A::Matrix{Tv}) where Tv
-    SparseELL2(A::SparseCSR{Tv,Ti}) where {Tv,Ti}
-    SparseELL2(A::SparseCSC{Tv,Ti}) where {Tv,Ti}
-    SparseELL2(A::SparseCOO{Tv,Ti}) where {Tv,Ti}
-    SparseELL2(A::SparseArrays.SparseMatrixCSC{Tv,Ti}) where {Tv,Ti}
+    SparseELL2(A)
 
-Create a sparse matrix with ELL format (column-based).
+Create a sparse matrix with ELL format from column-based structure.
+
+### Input
+- `A`: A matrix in various formats (Matrix, SparseCSR, SparseCSC, SparseCOO, or SparseMatrixCSC)
+
+### Returns
+- `SparseELL2{Tv,Ti}`: ELL format sparse matrix (column-based)
+
+### Example
+```julia
+A = SparseCSC(...)
+ell = SparseELL2(A)  # Convert to column-based ELL format
+```
 """
 function SparseELL2(A::SparseCSC{Tv,Ti}) where {Tv,Ti}
     m = A.m

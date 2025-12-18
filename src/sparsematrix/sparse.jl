@@ -22,14 +22,21 @@ abstract type AbstractSparseM{Tv,Ti} <: AbstractMatrix{Tv} end
 """
     SparseCSR{Tv,Ti} <: AbstractSparseM{Tv,Ti}
 
-Type that represents a sparse matrix with CSR format.
+Type that represents a sparse matrix with CSR (Compressed Sparse Row) format.
 
-### Fileds
-- `m::Ti`: the number of rows whose type is Ti
-- `n::Ti`: the number of columns whose type is Ti
-- `val::Vector{Tv}`: a vector of non-zero elements whose type is Tv
-- `rowptr::Vector{Ti}`: a vector to indicate a position of `val` to start each row.
-- `colind::Vector{Ti}`: a vector indicating the column index for the corredponding element of `val`.
+### Fields
+- `m::Ti`: the number of rows
+- `n::Ti`: the number of columns
+- `val::Vector{Tv}`: non-zero elements
+- `rowptr::Vector{Ti}`: row pointer array indicating where each row starts in val and colind arrays
+- `colind::Vector{Ti}`: column indices for each non-zero element
+
+### Example
+```julia
+# Create a CSR matrix from COO format
+coo = SparseCOO(3, 3, [1.0, 2.0, 3.0], [1, 2, 3], [1, 2, 3])
+csr = SparseCSR(coo)
+```
 """
 struct SparseCSR{Tv,Ti} <: AbstractSparseM{Tv,Ti}
     m::Ti
@@ -42,14 +49,20 @@ end
 """
     SparseCSC{Tv,Ti} <: AbstractSparseM{Tv,Ti}
 
-Type that represents a sparse matrix with CSC format.
+Type that represents a sparse matrix with CSC (Compressed Sparse Column) format.
 
-### Fileds
-- `m::Ti`: the number of rows whose type is Ti
-- `n::Ti`: the number of columns whose type is Ti
-- `val::Vector{Tv}`: a vector of non-zero elements whose type is Tv
-- `colptr::Vector{Ti}`: a vector to indicate a position of `val` to start each column.
-- `rowind::Vector{Ti}`: a vector indicating the row index for the corredponding element of `val`.
+### Fields
+- `m::Ti`: the number of rows
+- `n::Ti`: the number of columns
+- `val::Vector{Tv}`: non-zero elements
+- `colptr::Vector{Ti}`: column pointer array indicating where each column starts in val and rowind arrays
+- `rowind::Vector{Ti}`: row indices for each non-zero element
+
+### Example
+```julia
+coo = SparseCOO(3, 3, [1.0, 2.0, 3.0], [1, 2, 3], [1, 2, 3])
+csc = SparseCSC(coo)
+```
 """
 struct SparseCSC{Tv,Ti} <: AbstractSparseM{Tv,Ti}
     m::Ti
@@ -62,14 +75,26 @@ end
 """
     SparseCOO{Tv,Ti} <: AbstractSparseM{Tv,Ti}
 
-Type that represents a sparse matrix with COO format.
+Type that represents a sparse matrix with COO (Coordinate) format.
 
-### Fileds
-- `m::Ti`: the number of rows whose type is Ti
-- `n::Ti`: the number of columns whose type is Ti
-- `val::Vector{Tv}`: a vector of non-zero elements whose type is Tv
-- `rowind::Vector{Ti}`: a vector indicating the row index for the corredponding element of `val`.
-- `colind::Vector{Ti}`: a vector indicating the column index for the corredponding element of `val`.
+### Fields
+- `m::Ti`: the number of rows
+- `n::Ti`: the number of columns
+- `val::Vector{Tv}`: non-zero elements
+- `rowind::Vector{Ti}`: row indices for each non-zero element
+- `colind::Vector{Ti}`: column indices for each non-zero element
+
+### Notes
+COO format is useful for efficient construction of sparse matrices. Convert to CSR or CSC for efficient computation.
+
+### Example
+```julia
+# Create a 3x3 sparse identity matrix in COO format
+rowind = [1, 2, 3]
+colind = [1, 2, 3]
+val = [1.0, 1.0, 1.0]
+coo = SparseCOO(3, 3, val, rowind, colind)
+```
 """
 struct SparseCOO{Tv,Ti} <: AbstractSparseM{Tv,Ti}
     m::Ti
@@ -307,6 +332,18 @@ end
 
 ###
 
+"""
+    _tocsr(A, Ti)
+
+Internal function to convert a matrix to CSR (Compressed Sparse Row) format.
+
+### Input
+- `A`: Matrix to convert (Matrix or SparseCOO)
+- `Ti`: Target integer type for indices
+
+### Returns
+- `SparseCSR{Tv,Ti}`: Matrix in CSR format
+"""
 function _tocsr(A::Matrix{Tv}, ::Type{Ti})::SparseCSR{Tv,Ti} where {Tv, Ti}
     m, n = size(A)
     rowptr = Vector{Ti}(undef, m+1)
@@ -350,6 +387,18 @@ function _tocsr(A::SparseCOO{Tv,Ti})::SparseCSR{Tv,Ti} where {Tv, Ti}
     SparseCSR(m, n, val, rowptr, colind)    
 end
 
+"""
+    _tocsc(A, Ti)
+
+Internal function to convert a matrix to CSC (Compressed Sparse Column) format.
+
+### Input
+- `A`: Matrix to convert (Matrix, SparseCOO, or SparseArrays.SparseMatrixCSC)
+- `Ti`: Target integer type for indices
+
+### Returns
+- `SparseCSC{Tv,Ti}`: Matrix in CSC format
+"""
 function _tocsc(A::Matrix{Tv}, ::Type{Ti})::SparseCSC{Tv,Ti} where {Tv, Ti}
     m, n = size(A)
     colptr = Vector{Ti}(undef, n+1)
@@ -397,6 +446,18 @@ function _tocsc(A::SparseArrays.SparseMatrixCSC{Tv,Ti})::SparseCSC{Tv,Ti} where 
     SparseCSC(A.m, A.n, copy(A.nzval), copy(A.colptr), copy(A.rowval))
 end
 
+"""
+    _tocoo(A, Ti)
+
+Internal function to convert a matrix to COO (Coordinate) format.
+
+### Input
+- `A`: Matrix to convert (Matrix, SparseCSR, or SparseCSC)
+- `Ti`: Target integer type for indices
+
+### Returns
+- `SparseCOO{Tv,Ti}`: Matrix in COO format
+"""
 function _tocoo(A::Matrix{Tv}, ::Type{Ti})::SparseCOO{Tv,Ti} where {Tv, Ti}
     m, n = size(A)
     rowind = Vector{Ti}()
@@ -446,6 +507,17 @@ function _tocoo(A::SparseCSC{Tv,Ti})::SparseCOO{Tv,Ti} where {Tv, Ti}
     SparseCOO(m, n, val, rowind, colind)
 end
 
+"""
+    _todense(A)
+
+Internal function to convert a sparse matrix to dense Matrix format.
+
+### Input
+- `A`: Sparse matrix in CSR, CSC, or COO format
+
+### Returns
+- `Matrix{Tv}`: Dense matrix representation
+"""
 function _todense(A::SparseCSR{Tv,Ti})::Matrix{Tv} where {Tv, Ti}
     m, n = size(A)
     M = zeros(m,n)

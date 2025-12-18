@@ -4,6 +4,31 @@ import LinearAlgebra.BLAS
 
 # blas level 2
 
+# gemv!(trans::Char, alpha, A, x, beta, y)
+#
+# Update `y` with matrix-vector multiplication: ``y := \alpha * A^{trans} * x + \beta * y``.
+#
+# Supports sparse matrix formats (SparseCSR, SparseCSC, SparseCOO) as well as standard Matrix types.
+#
+# Arguments:
+# - `trans::Char`: 'N' for non-transpose or 'T' for transpose
+# - `alpha`: scalar multiplier
+# - `A`: matrix (sparse or dense)
+# - `x`: vector
+# - `beta`: scalar multiplier for y
+# - `y`: output vector (modified in-place)
+#
+# Returns:
+# - Updated vector `y`
+
+# spger!(alpha, X, Y, beta, A)
+#
+# Compute
+#    A = alpha * X * Y + beta * A
+# where A is a matrix, X and Y are column and row vectors respectively.
+#
+# Output: The matrix A is directly changed and also it is returned as an output.
+
 for Tv in [:Float64]
     @eval begin
 
@@ -121,19 +146,6 @@ for Tv in [:Float64]
 
     @eval begin
         @inbounds begin
-            """
-                spger!(alpha, X, Y, beta, A)
-            
-            Compute
-            ```
-               A = alpha * X * Y + beta * A
-            ```
-            where A is a matrix, X and Y are column and row vectors respectively.
-
-            ### Output
-
-            The matrix A is directly changed and also it is returned as an output.
-            """
             function spger!(alpha::Union{$Tv,Bool}, X::AbstractVector{$Tv}, Y::AbstractVector{$Tv}, beta::Union{$Tv,Bool}, A::Matrix{$Tv})
                 m, n = size(A)
                 @. A *= beta

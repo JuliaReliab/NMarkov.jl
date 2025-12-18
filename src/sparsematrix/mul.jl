@@ -1,7 +1,27 @@
+"""
+    Adjoint{T}
+
+Lazy representation of the adjoint (transpose for real matrices) of a sparse matrix.
+
+### Example
+```julia
+A = SparseCSR(...)
+At = A'  # Creates Adjoint(A)
+result = At * x  # Matrix-vector multiplication with transpose
+```
+"""
 struct Adjoint{T <: AbstractSparseM}
     parent::T
 end
 
+"""
+    adjoint(A::AbstractSparseM)
+
+Return the adjoint (conjugate transpose) of sparse matrix A. For real matrices, this is equivalent to transpose.
+
+### Returns
+- `Adjoint{T}`: lazy representation of the adjoint
+"""
 function Base.adjoint(A::AbstractSparseM{Tv,Ti}) where {Tv,Ti}
     Adjoint(A)
 end
