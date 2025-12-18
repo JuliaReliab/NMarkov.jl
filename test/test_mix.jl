@@ -1,3 +1,5 @@
+using LinearAlgebra
+using NMarkov
 
 @testset "mixexp2" begin
     Q = [
