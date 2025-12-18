@@ -12,25 +12,24 @@ import LinearAlgebra.BLAS
 
 # blas level 3
 
-"""
-    gemm!(transA::Char, transB::Char, alpha, A, B, beta, C)
+# gemm!(transA::Char, transB::Char, alpha, A, B, beta, C)
+#
+# Update `C` with matrix-matrix multiplication: ``C := \alpha * A^{transA} * B^{transB} + \beta * C``.
+#
+# Supports sparse matrix formats (SparseCSR, SparseCSC, SparseCOO) combined with dense matrices.
+#
+# Arguments:
+# - `transA::Char`: 'N' for non-transpose or 'T' for transpose of A
+# - `transB::Char`: 'N' for non-transpose or 'T' for transpose of B
+# - `alpha`: scalar multiplier
+# - `A`: matrix (sparse or dense)
+# - `B`: matrix (sparse or dense)
+# - `beta`: scalar multiplier for C
+# - `C`: output matrix (modified in-place)
+#
+# Returns:
+# - Updated matrix `C`
 
-Update `C` with matrix-matrix multiplication: ``C := \\alpha * A^{transA} * B^{transB} + \\beta * C``.
-
-Supports sparse matrix formats (SparseCSR, SparseCSC, SparseCOO) combined with dense matrices.
-
-### Arguments
-- `transA::Char`: 'N' for non-transpose or 'T' for transpose of A
-- `transB::Char`: 'N' for non-transpose or 'T' for transpose of B
-- `alpha`: scalar multiplier
-- `A`: matrix (sparse or dense)
-- `B`: matrix (sparse or dense)
-- `beta`: scalar multiplier for C
-- `C`: output matrix (modified in-place)
-
-### Returns
-- Updated matrix `C`
-"""
 for Tv in [:Float64]
     @eval begin
 
