@@ -1,27 +1,152 @@
 """
-Quasi-stationary vector with iterative methods
+    qstgs(Q, xi; x0, maxiter, steps, rtol)
+    qstpower(P, xi; x0, maxiter, steps, rtol)
+
+Quasi-stationary analysis for Markov chains with absorbing boundaries.
+
+This module provides methods to compute quasi-stationary distributions (QSD)
+and absorption rates for Markov chains with one or more absorbing states.
+
+The quasi-stationary distribution describes the conditional distribution of
+the chain states given non-absorption up to time t, in the limit t→∞.
+
+## Applications
+
+- Reliability and survival analysis: behavior conditioned on no failure
+- Population dynamics: conditioned on non-extinction
+- Fluid flow: conditioned on non-overflow
+- Exit rates and quasi-equilibrium analysis
+
+## Supported Methods
+
+- **Gauss-Seidel iteration**: `qstgs` - For CTMCs with sparse matrices
+- **Power method**: `qstpower` - For DTMCs with eigenvalue computation
+
+## Key Concepts
+
+**Quasi-stationary distribution (QSD)**: The limiting conditional distribution
+of states when conditioned on non-absorption:
+
+`π_QST = lim_{t→∞} P(X(t)=i | τ > t)` where τ is absorption time
+
+**Exit rate (absorption rate)**: The conditional absorption rate given QSD:
+
+`γ = ∫ π_QST * e dt` where e is the exit vector
+
+## Example
+
+```julia
+using NMarkov
+
+# 4-state CTMC with absorption
+Q = [-2.0  1.0  0.5  0.5;    # transient states
+      0.5 -1.0  0.3  0.2;
+      0.5  0.2 -1.0  0.3;
+      0.0  0.0  0.0  0.0]    # absorbing state
+
+# Exit vector (rates to absorption)
+xi = [1.0; 1.0; 1.0; 0.0]
+
+# Quasi-stationary distribution (GS iteration)
+qst, gamma, conv, iter, rerr = qstgs(Q, xi)
+
+# Interpretation:
+# qst = QSD (conditioned on non-absorption)
+# gamma = absorption rate for chain in QSD
+```
 """
 
 """
-qstgs(Q::SparseCSC{Tv,Ti}, xi::Vector{Tv};
-      x0::Vector{Tv}=stguess(Q,Tv), maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6))
+    qstgs(Q, xi; x0, maxiter, steps, rtol)
 
-Get a quasi-stationary vector of CTMC.
+Compute the quasi-stationary distribution for CTMC using Gauss-Seidel iteration.
 
-Parameters:
-- Q: CTMC Kernal
-- xi: Exit vector
-- x0: Initial vector for iteration
-- maxiter: The maximum number of iteration. The algorithm stops when the number of iteration becomes maxiter.
-- steps: The number of steps to check the convergence
-- rtol: the tolerance error. When the relative errors of two successive vectors with steps attains rtol, the algorithm stops.
-Return value:
-A tuple of
-- x: quasi-stationary vector
-- gam: minimum eigen value
-- conv: A boolean whether the algorithm converges or not
-- iter: The number of iterations
-- rerror: The relative error when the algorithm stops
+Iteratively solves for the QSD vector q and exit rate γ such that:
+`(Q - γ*I) * q = 0` with normalization `sum(q) = 1`
+
+## Arguments
+
+- `Q::Union{SparseMatrixCSC, SparseCSC}`: CTMC generator matrix
+- `xi::Vector`: Exit vector (rates to absorption); must be non-negative
+- `x0::Vector=stguess(Q)`: Initial guess for QSD (default: uniform/diagonal-based)
+- `maxiter::Int=5000`: Maximum number of iterations
+- `steps::Int=20`: Number of GS steps between convergence checks
+- `rtol::Real=1.0e-6`: Relative error tolerance for convergence
+
+## Returns
+
+Tuple of five elements:
+1. `x::Vector`: Quasi-stationary distribution (normalized to sum(x) = 1)
+2. `gam::Real`: Absorption rate for chain in QSD (eigenvalue)
+3. `conv::Bool`: Convergence flag (true if `rerror < rtol`)
+4. `iter::Int`: Number of iterations performed
+5. `rerror::Real`: Relative error at termination
+
+## Algorithm
+
+Implements GS iteration with power method eigenvalue tracking:
+
+1. Initialize: x <- x0
+2. For iteration k:
+   - Compute absorption probability: γ = dot(x, ξ)
+   - Apply GS step: x <- gsstep!(x, Q, 0, sigma=-γ)
+   - Normalize: x <- x / sum(x)
+   - Check convergence: rerror = max(|x_new - x_old|) / max(x_new)
+3. Stop when: rerror < rtol or iter >= maxiter
+
+The parameter σ = -γ implements the shifted operator (Q - γ*I).
+
+## Mathematical Formulation
+
+The QSD satisfies the eigenvalue problem:
+`Q * q = -γ * q` where γ is the conditional absorption rate
+
+Subject to normalization: `sum(q) = 1`
+
+The exit rate is computed as: `γ = q' * ξ`
+
+## Convergence
+
+For CTMCs with well-separated spectral gap:
+- Typical convergence: 50-500 iterations
+- Depends on proximity of second-largest eigenvalue to 0
+- May require parameter tuning for nearly-reversible chains
+
+## Physical Interpretation
+
+- **x vector**: Long-term state distribution conditioned on non-absorption
+- **gam value**: Rate at which chain exits (absorbed) from QSD
+- **High gam**: Chain absorbs quickly from QSD
+- **Low gam**: Chain persists long before absorption
+
+## Computational Notes
+
+- Time complexity per iteration: O(nnz(Q))
+- Memory: O(n) for vectors only
+- Suitable for large sparse matrices (n >= 1000)
+- Requires stable initialization for convergence
+
+## Example
+
+```julia
+using NMarkov
+using SparseArrays
+
+# 5-state CTMC: 4 transient + 1 absorbing
+n = 5
+Q_transient = sparse([-1.5  1.0  0.3  0.2;
+                       0.5 -1.2  0.4  0.3;
+                       0.3  0.4 -1.0  0.3;
+                       0.2  0.3  0.3 -0.8])
+Q = [Q_transient  ones(4,1); zeros(1,5)]
+
+xi = [1.0; 1.0; 1.0; 1.0; 0.0]
+
+qst, gamma, conv, iter, rerr = qstgs(Q, xi; rtol=1.0e-6)
+println("QSD: \$qst")
+println("Absorption rate: \$gamma")
+println("Converged: \$conv in \$iter iterations")
+```
 """
 
 function qstgs(Q::SparseMatrixCSC{Tv,Ti}, xi::Vector{Tv}; x0::Vector{Tv}=stguess(Q,Tv),
@@ -62,24 +187,99 @@ function qstgs(Q::SparseCSC{Tv,Ti}, xi::Vector{Tv}; x0::Vector{Tv}=stguess(Q,Tv)
 end
 
 """
-qstpower(P::AbstractMatrix{Tv}; x0::Vector{Tv}=stguess(Q,Tv), maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6))
+    qstpower(P, xi; x0, maxiter, steps, rtol)
 
-Get a quasi-stationary vector of DTMC with power method.
+Compute the quasi-stationary distribution for DTMC using Power method.
 
-Parameters:
-- P: The transition probability matrix for DTMC
-- xi: Exit vector
-- x0: Initial vector for iteration
-- maxiter: The maximum number of iteration. The algorithm stops when the number of iteration becomes maxiter.
-- steps: The number of steps to check the convergence
-- rtol: the tolerance error. When the relative errors of two successive vectors with steps attains rtol, the algorithm stops.
-Return value:
-A tuple of
-- x: quasi-stationary vector
-- gam: maximimum eigen value
-- conv: A boolean whether the algorithm converges or not
-- iter: The number of iterations
-- rerror: The relative error when the algorithm stops
+Iteratively solves for the QSD vector q and dominant eigenvalue λ such that:
+`P' * q = λ * q` with normalization `sum(q) = 1`
+
+## Arguments
+
+- `P::AbstractMatrix`: DTMC transition probability matrix
+- `xi::Vector`: Exit vector (absorption/transition rates); must be non-negative
+- `x0::Vector=stguess(P)`: Initial guess for QSD (default: uniform)
+- `maxiter::Int=5000`: Maximum number of iterations
+- `steps::Int=20`: Number of power steps between convergence checks
+- `rtol::Real=1.0e-6`: Relative error tolerance for convergence
+
+## Returns
+
+Tuple of five elements:
+1. `x::Vector`: Quasi-stationary distribution (normalized to sum(x) = 1)
+2. `nu::Real`: Quasi-stationary parameter (inner product dot(x, ξ))
+3. `conv::Bool`: Convergence flag (true if `rerror < rtol`)
+4. `iter::Int`: Number of iterations performed
+5. `rerror::Real`: Relative error at termination
+
+## Algorithm
+
+Implements power method for QSD computation:
+
+1. Initialize: x <- x0
+2. For iteration k:
+   - Apply `steps` power iterations: x <- P'*x
+   - Normalize: x <- x / sum(x)
+   - Check convergence: rerror = max(|x_new - x_old|) / max(x_new)
+3. After convergence, compute: ν = dot(x, ξ)
+4. Stop when: rerror < rtol or iter >= maxiter
+
+Each power iteration multiplies by transpose of transition matrix P'.
+
+## Mathematical Formulation
+
+The QSD satisfies the eigenvector equation:
+`P' * q = λ * q` with `sum(q) = 1`
+
+where λ is the dominant eigenvalue (< 1 for absorbing chains).
+
+The quasi-stationary parameter:
+`ν = q' * ξ` measures relative absorption rate
+
+## Convergence Rate
+
+For DTMC with spectral gap δ = 1 - λ₂ (gap to second-largest eigenvalue):
+- Convergence rate: O(λ₂^k)
+- Faster for larger gaps (λ₂ << 1)
+- Slower for nearly-periodic matrices (λ₂ ≈ 1)
+
+## Physical Interpretation
+
+- **x vector**: Quasi-stationary distribution (long-term conditioned distribution)
+- **nu value**: Expected absorption rate from QSD
+- **Eigenvalue λ**: Probability of non-absorption in one step (from QSD)
+
+## Computational Notes
+
+- Time complexity per iteration: O(n²) or O(nnz(P)) for sparse
+- Memory: O(n) for vectors only
+- Suitable for small-to-medium dense DTMCs
+- Faster than dense linear algebra for sparse matrices
+
+## Comparison with qstgs
+
+- **qstgs** (GS): Better for CTMCs, faster convergence typically
+- **qstpower** (Power): Better for DTMCs, simpler implementation, direct eigenvalue
+
+## Example
+
+```julia
+using NMarkov
+
+# DTMC with absorption: P includes transition to absorbing state
+P = [0.7  0.2  0.0  0.1;    # state 1
+     0.1  0.7  0.1  0.1;    # state 2
+     0.0  0.2  0.7  0.1;    # state 3
+     0.0  0.0  0.0  1.0]    # absorbing state
+
+xi = [1.0; 1.0; 1.0; 0.0]   # exit rates (0 for absorbing)
+
+qst, nu, conv, iter, rerr = qstpower(P, xi; rtol=1.0e-6)
+
+println("QSD: \$qst")
+println("Quasi-stationary parameter: \$nu")
+println("Absorbed in \$iter iterations (converged: \$conv)")
+```
 """
 
 function qstpower(P::AbstractMatrix{Tv}, xi::Vector{Tv};

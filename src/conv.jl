@@ -3,35 +3,106 @@
 # """
 
 """
-convunifstep!(trQ, trH, P, poi, range, weight, qv_weight, x, y, z, H)
+    convunifstep!(trQ, trH, P, poi, range, weight, qv_weight, x, y, z, H)
 
-! Description: convolution integral operation for matrix exp form;
-!
-!          |t
-! trH(H) = | exp(trQ(Q)*s) * x * y' * exp(trQ(Q)*(t-s)) ds
-!          |0
-!
-!        and
-!
-!        z = exp(trQ(Q)*t) * x
-!
-!        t is involved in the Poisson probability vector.
-!        qv is an uniformed parameter
-!        return value is z
+Matrix exponential convolution operation using uniformization.
 
-Parameters:
-- trQ: transpose operator
-- trH: transpose operator
-- P: The uniformed matrix
-- poi: Poisson p.m.f.
-- range: domain of Poisson p.m.f
-- weight: The normalizing constant for Poisson p.m.f.
-- qv_weight: The normalizing constant for Poisson c.c.d.f.
-- x: Vector (inout). x may be changed after executing
-- y: Vector (out). y should be zero before executing
-- z: Vector (out). cy should be zero before executing
-- H: Array (out). H should be zero before executing
-Return value: nothing
+Computes the time-convolved integral of matrix exponentials:
+
+`H = int_0^t exp(Q'*s) * x * y' * exp(Q'*(t-s)) ds`
+
+simultaneously with the instantaneous:
+
+`z = exp(Q'*t) * x`
+
+This is essential for computing cumulative two-variable reward functionals
+in transient analysis of CTMCs.
+
+## Arguments
+
+- `trQ::Symbol`: Transposition mode for Q (`:N` for forward, `:T` for backward)
+- `trH::Symbol`: Transposition mode for H result (`:N` for row-wise, `:T` for column-wise)
+- `P::AbstractMatrix`: Uniformized transition matrix (from `unif()`)
+- `poi::Vector`: Poisson probability mass function values
+- `range::Tuple{Int,Int}`: `(left, right)` indices for Poisson summation limits
+- `weight::Real`: Normalization constant for instantaneous: `exp(-q*t) * sum_k (q*t)^k/k!`
+- `qv_weight::Real`: Normalization constant for convolution: same or adjusted
+- `x::Array`: Initial state vector (modified during execution)
+- `y::Array`: Second vector for convolution (not modified)
+- `z::Array`: Output array for instantaneous result (must be zero-initialized)
+- `H::Matrix`: Output array for convolution integral (must be zero-initialized)
+
+## Returns
+
+- Nothing; results stored in-place in `z` and `H`
+
+## Algorithm
+
+Implements the uniformization-based convolution formula:
+
+1. Prepare backward vectors: `vc[k]` = reversed Poisson-weighted P' powers
+   - `vc[right] = poi[right] * y`
+   - `vc[k] = P' * vc[k+1] + poi[k] * y`
+
+2. Forward computation with outer product accumulation:
+   - Initialize: `z += poi[0] * x`
+   - `H += outer(x, vc[left+1])`
+   - For each forward step k: apply P*x, accumulate weighted contributions
+   - `z += poi[k] * P^k*x`
+   - `H += outer(P^k*x, vc[k+1])`
+
+3. Normalization: `z /= weight`, `H /= qv_weight`
+
+## Mathematical Background
+
+The convolution integral satisfies:
+
+`d/dt H(t) = exp(Q'*t)*x*y' + Q'*H(t)`
+
+Solution: `H(t) = int_0^t exp(Q'*s)*x*y'*exp(Q'*(t-s)) ds`
+
+Uniformization converts this to:
+
+`H(t) = (1/q*weight) * sum_i sum_j poi[i]*poi[j] * P^i*x*y'*P'^j`
+
+where the backward vectors vc[j] pre-accumulate the P' powers with Poisson weights.
+
+## Numerical Stability
+
+- Separate normalization (weight, qv_weight) for accuracy
+- Backward vector computation prevents numerical overflow
+- Outer product operations use robust BLAS routines
+
+## Memory Requirements
+
+- Intermediate: O(right-left+1) * n for backward vectors vc
+- In-place: no additional matrix allocation beyond outputs z, H
+
+## Example
+
+```julia
+using NMarkov
+
+Q = [-2.0  1.0  1.0;
+      0.5 -1.0  0.5;
+      1.0  1.0 -2.0]
+
+x = [1.0; 0.0; 0.0]
+y = [0.0; 1.0; 0.0]
+
+P, qv = unif(Q, 1.01)
+t = 1.5
+right = rightbound(qv*t, 1.0e-8)
+weight, poi = poipmf(qv*t, right, left=0)
+
+z = zero(x)
+H = zeros(3, 3)
+
+convunifstep!(:N, :N, P, poi, (0, right), weight, weight, x, y, z, H)
+
+# z = exp(Q'*1.5) * x
+# H = integral of exp(Q'*s)*x*y'*exp(Q'*(1.5-s)) ds for s in [0, 1.5]
+```
 """
 
 function convunifstep!(trQ::Symbol, trH::Symbol,
