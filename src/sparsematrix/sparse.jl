@@ -22,18 +22,6 @@ abstract type AbstractSparseM{Tv,Ti} <: AbstractMatrix{Tv} end
 """
     SparseCSR{Tv,Ti} <: AbstractSparseM{Tv,Ti}
 
-Type that represents a sparse matrix with CSR format.
-
-### Fileds
-- `m::Ti`: the number of rows whose type is Ti
-- `n::Ti`: the number of columns whose type is Ti
-- `val::Vector{Tv}`: a vector of non-zero elements whose type is Tv
-- `rowptr::Vector{Ti}`: a vector to indicate a position of `val` to start each row.
-- `colind::Vector{Ti}`: a vector indicating the column index for the corredponding element of `val`.
-"""
-"""
-    SparseCSR{Tv,Ti} <: AbstractSparseM{Tv,Ti}
-
 Type that represents a sparse matrix with CSR (Compressed Sparse Row) format.
 
 ### Fields
