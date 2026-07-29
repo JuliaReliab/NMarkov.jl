@@ -1,20 +1,23 @@
 # NMarkov
 
-[![CI](https://github.com/okamumu/NMarkov.jl/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/okamumu/NMarkov.jl/actions/workflows/ci.yml)
-[![Codecov](https://codecov.io/gh/okamumu/NMarkov.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/okamumu/NMarkov.jl)
+[![CI](https://github.com/JuliaReliab/NMarkov.jl/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/JuliaReliab/NMarkov.jl/actions/workflows/ci.yml)
+[![Codecov](https://codecov.io/gh/JuliaReliab/NMarkov.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaReliab/NMarkov.jl)
+
 NMarkov.jl is a package for numerical computation of Markov chains.
+
+Requires Julia 1.10 or later.
 
 ## Installation
 
-This package is not yet registered in the official Julia Registry. Please run the following command to install it.
+Neither this package nor `DEQuadrature` is registered in the official Julia
+Registry, so both are installed from their URLs. `ZeroOrigin`, the other
+dependency, is registered and resolves on its own.
+
 ```julia
 using Pkg
-Pkg.add(PackageSpec(url="https://github.com/JuliaReliab/ZeroOrigin.jl.git"))
 Pkg.add(PackageSpec(url="https://github.com/JuliaReliab/DEQuadrature.jl.git"))
 Pkg.add(PackageSpec(url="https://github.com/JuliaReliab/NMarkov.jl.git"))
 ```
-
-The packages `ZeroOrigin` and `DEQuadrature` are required dependencies of NMarkov.
 
 ## Quick Start
 
@@ -96,26 +99,31 @@ The `SparseMatrix` submodule provides efficient sparse matrix formats optimized 
 - **SparseCSR (Compressed Sparse Row)**: Efficient for row-wise access and matrix-vector products
 - **SparseCSC (Compressed Sparse Column)**: Efficient for column-wise access and recommended for many algorithms
 - **SparseCOO (Coordinate Format)**: Flexible format for constructing sparse matrices; can be converted to CSR/CSC
-- **SparseELL (ELLPACK Format)**: Efficient for matrices with relatively uniform row lengths
+- **SparseELL1 / SparseELL2 (ELLPACK Format)**: Efficient for matrices with relatively uniform row lengths
 - **BlockCOO (Block Coordinate Format)**: For matrices with dense block structure
 
 Each format has different performance characteristics depending on the operation:
 ```julia
+using SparseArrays
 using NMarkov.SparseMatrix
 
 # Convert between formats
-M = sparse(Q)  # Julia's native SparseMatrixCSC
+M = sparse(Q)         # Julia's native SparseMatrixCSC
 csr = SparseCSR(M)    # Convert to CSR format
 csc = SparseCSC(M)    # Convert to CSC format
 coo = SparseCOO(M)    # Convert to COO format
 
 # Use in computations
-piv = stgs(csc)       # Gauss-Seidel with CSC format
-piv = stgs(coo)       # Also works with COO format
+piv, = stgs(csc)      # Gauss-Seidel with CSC format
 y = mexp(csr, x, t)   # Matrix exponential with CSR format
+y = mexp(coo, x, t)   # ... any format, including COO
 ```
 
-For most applications, **CSC format is recommended** as it provides good performance for standard matrix operations and is compatible with the Gauss-Seidel algorithms used in stationary analysis.
+`mexp`, `mexpc`, `tran` and the other transient functions accept every format
+above as well as a dense `Matrix`. The Gauss-Seidel solvers are narrower: **`stgs`,
+`stsengs` and `qstgs` accept only `SparseMatrixCSC` and `SparseCSC`**, so
+**CSC format is the one to reach for** if you need stationary or sensitivity
+analysis on a sparse kernel.
 
 ## Transient Analysis of CTMC
 
@@ -297,11 +305,22 @@ The function returns four values:
 2. **`crwd` (Cumulative Reward)**: The cumulative reward accumulated from time 0 to each time point
    - $\text{crwd}_t = \int_0^t r^T \cdot x(u) \, du$ (total reward up to time $t$)
 
-3. **`y` (State Probability Vectors)**: State probability vector at each time point
-   - $y_t = x \exp(Qt)$ (probability distribution at time $t$)
+3. **`y` (Final State Probability Vector)**: the state probability vector at the
+   **last** time point — a single vector of length $n$, not one per time point
+   - $y = x \exp(Q t_{\text{end}})$
 
-4. **`cy` (Cumulative State Probability)**: Integrated state probability from time 0 to each time point
-   - $\text{cy}_t = \int_0^t x \exp(Qu) \, du$ (cumulative time spent in each state)
+4. **`cy` (Cumulative State Probability)**: the integrated state probability over
+   the **whole** interval — again a single vector of length $n$
+   - $\text{cy} = \int_0^{t_{\text{end}}} x \exp(Qu) \, du$ (total time spent in each state)
+
+Only `irwd` and `crwd` have one entry per time point. If you need the state
+probability vector at every time point, use `mexpc`:
+
+```julia
+probs, cprobs = mexpc(Q, x, ts, transpose=:T)
+# probs[i]  - state probability vector at ts[i]
+# cprobs[i] - cumulative state probability up to ts[i]
+```
 
 Example usage:
 ```julia
@@ -325,8 +344,8 @@ irwd, crwd, y, cy = tran(Q, x, r, ts)
 
 # irwd[i]  - instantaneous reward at ts[i]
 # crwd[i]  - cumulative reward from 0 to ts[i]
-# y[i]     - state probability vector at ts[i]
-# cy[i]    - cumulative time spent in each state up to ts[i]
+# y        - state probability vector at the last time point (one vector)
+# cy       - time spent in each state over the whole interval (one vector)
 ```
 
 This is useful for computing performance metrics such as:
@@ -339,13 +358,15 @@ This is useful for computing performance metrics such as:
 The package provides the function to create some special matrix.
 
 - `eye(n)`: the function to create the n-by-n identity matrix
-- `unif(Q)`: the function to obtain the uniformized transition probability matrix from the infinitesimal generator `Q`;
+- `unif(Q, ufact = 1.01)`: the function to obtain the uniformized transition probability matrix from the infinitesimal generator `Q`;
 
 ```math
-P = I - Q / q
+P = I + Q / q, \quad q = \text{ufact} \cdot \max_i |Q_{ii}|
 ```
 
-where $I$ is the identity matrix and $q$ is the maximum of absolute values of diagonal elements of $Q$. In addition, there are functions to obtain stationary vector and its sensitivity of $P$
+where $I$ is the identity matrix. The factor `ufact` (default `1.01`) keeps $q$
+strictly above $\max_i |Q_{ii}|$, so every entry of $P$ stays positive; `unif`
+returns both $P$ and $q$. In addition, there are functions to obtain stationary vector and its sensitivity of $P$
 
 ```julia
 P, qv = unif(Q)
@@ -493,9 +514,11 @@ end
 # GS-type method
 x, γ, = qstgs(Q, ξ)
 
-# power method
-P, = unif(Q)
-x, γ, = qstpower(P, ξ)
+# power method. qstpower works on the uniformized matrix, so the exit rates
+# must be scaled by q as well, and the eigenvalue it returns is scaled too:
+# γ * qv corresponds to the γ from qstgs.
+P, qv = unif(Q)
+x, γ, = qstpower(P, ξ / qv)
 ```
 
 ### Transient analysis
