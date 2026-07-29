@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-NMarkov.jl — Julia package for numerical analysis of continuous-time Markov chains (CTMCs): stationary/quasi-stationary distributions, transient rewards, matrix exponentials, and sensitivity analysis. Not registered, and neither is its `DEQuadrature` dependency (installed from a URL, or via the `[sources]` entry on Julia 1.11+); the other dependency, `ZeroOrigin`, is in General. `compat` targets Julia 1.10 (the current LTS); CI runs `min` and `1`, i.e. that lower bound and the latest stable release.
+NMarkov.jl — Julia package for numerical analysis of continuous-time Markov chains (CTMCs): stationary/quasi-stationary distributions, transient rewards, matrix exponentials, and sensitivity analysis. Registered in the JuliaReliab registry (`https://github.com/JuliaReliab/Registry.git`, maintained with LocalRegistry.jl), not in General; so is its `DEQuadrature` dependency. The other dependency, `ZeroOrigin`, is in General. Adding that registry once is all the setup a checkout needs — there is deliberately no `[sources]` entry, since a registered package's `[sources]` is not honoured for consumers. `compat` targets Julia 1.10 (the current LTS); CI runs `min` and `1`, i.e. that lower bound and the latest stable release.
 
 ## Commands
 

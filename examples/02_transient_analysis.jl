@@ -42,7 +42,13 @@ println()
 # Compute mixture with exponential distribution
 # y_t = x_0 * int_0^inf exp(Q*u) * f(u) du
 # where f(u) = 1.0 * exp(-1.0*u)
-yt = mexpmix(Q, x0, transpose=:T) do u
+#
+# The default bounds are (0, Inf), and the double-exponential quadrature places
+# its outermost node far out in the tail. The longest interval it asks for here
+# needs about 830 Poisson terms, so the default rmax of 500 is not enough --
+# raise it rather than truncating the integral. (Checked against the analytic
+# value int_0^inf exp(Q'u) x0 e^{-u} du = inv(I - Q') * x0.)
+yt = mexpmix(Q, x0, transpose=:T, rmax=1000) do u
     1.0 * exp(-1.0 * u)
 end
 println("Mixture with exponential distribution:")
@@ -51,7 +57,7 @@ println()
 
 # Compute mixture with cumulative integral
 # y_t, bary_t = x_0 * int_0^inf int_0^u exp(Q*s) ds * f(u) du
-yt, baryt = mexpcmix(Q, x0, transpose=:T) do u
+yt, baryt = mexpcmix(Q, x0, transpose=:T, rmax=1000) do u
     1.0 * exp(-1.0 * u)
 end
 println("Mixture with cumulative integral:")

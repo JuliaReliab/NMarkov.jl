@@ -38,17 +38,19 @@ jobs:
       - name: Cache Julia depot
         uses: julia-actions/cache@v3
 
-      - name: Install unregistered dependencies
-        # DEQuadrature is not in General. Julia 1.11+ resolves it from the
-        # [sources] entry in Project.toml; earlier versions ignore that section
-        # and need the URL spelled out. ZeroOrigin is in General, so it needs
-        # nothing either way.
+      - name: Add the JuliaReliab registry
+        # DEQuadrature lives here rather than in General (so does NMarkov itself).
+        # Both adds are guarded: julia-actions/cache restores registries between
+        # runs, and adding one that is already present is an error. General is
+        # named explicitly because adding a registry by RegistrySpec on an empty
+        # depot does not pull General in, and Distributions comes from there.
         run: |
-          julia --project=. -e '
+          julia -e '
             using Pkg
-            if VERSION < v"1.11"
-                Pkg.add(PackageSpec(url="https://github.com/JuliaReliab/DEQuadrature.jl.git"))
-            end'
+            names = [r.name for r in Pkg.Registry.reachable_registries()]
+            "General" in names || Pkg.Registry.add("General")
+            "Registry" in names ||
+                Pkg.Registry.add(RegistrySpec(url="https://github.com/JuliaReliab/Registry.git"))'
 
       - name: Build package
         uses: julia-actions/julia-buildpkg@v1

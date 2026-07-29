@@ -29,6 +29,14 @@ Markov chain (DTMC), enabling numerically stable computation via Poisson series 
 - **Reward computation**: Both instantaneous (mexp*) and cumulative (mexpc*) values
 - **Distribution mixing**: Integration with probability distributions via DEQuadrature
 
+## Note on `rmax` for the mixture functions
+
+`mexpmix`/`mexpcmix` default to `bounds = (0, Inf)`, and the double-exponential
+quadrature places its outermost node far into the tail. The longest interval it
+asks for can need well over the default `rmax = 500` Poisson terms — a generator
+with `max|Q_ii|` around 3.5 already needs about 830. Raise `rmax` rather than
+narrowing `bounds`, or the integral is truncated instead of merely coarse.
+
 ## Example
 
 ```julia
