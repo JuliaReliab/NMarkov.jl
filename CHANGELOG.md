@@ -1,3 +1,57 @@
+# NMarkov 0.5.0
+
+## Breaking
+
+- **Requires Julia 1.10 or later** (`[compat] julia = "1.10"`, previously
+  `"1.6"`). 1.10 is the current LTS; 1.6–1.9 are no longer supported.
+
+## CI
+
+- The test matrix is now `["min", "1"]` — the lower bound declared in
+  `Project.toml` and the latest stable release, both resolved by
+  `julia-actions/setup-julia`. It was `1.6 / 1.9 / 1.10`, which tested an EOL
+  version (1.9) and **no currently released Julia at all**: 1.11 and 1.12 were
+  never exercised. Two jobs instead of three.
+- Added a `concurrency` group so a new push to a pull request cancels the
+  superseded run. Runs on a branch are never cancelled, so the master run — the
+  one the README badge reads — always completes.
+- Replaced the hand-rolled `actions/cache` step (which cached only
+  `~/.julia/artifacts`) with `julia-actions/cache@v3`, which caches the whole
+  depot.
+- The `DEQuadrature` URL install is now conditional on `VERSION < v"1.11"`:
+  1.11+ resolves it from the `[sources]` entry in `Project.toml`, earlier
+  versions ignore that section.
+- Coverage is now processed and uploaded (`julia-processcoverage` +
+  `codecov-action`) from the latest-stable job. `julia-runtest` was already
+  collecting it; the report was simply discarded. Uploading needs a
+  `CODECOV_TOKEN` repository secret.
+
+## Documentation
+
+Verified every code example in `README.md` against the current API by running
+it. Corrected:
+
+- `stgs(coo)` was documented as working; `stgs`, `stsengs` and `qstgs` accept
+  only `SparseMatrixCSC` and `SparseCSC`. (The transient functions do accept
+  every format.)
+- `tran`'s third and fourth return values were described as one state vector per
+  time point. They are single vectors: the state at the last time point and the
+  cumulative time in each state over the whole interval. Only the first two
+  returns are per time point; `mexpc` gives the per-time-point vectors.
+- The uniformization formula was written `P = I - Q / q`; it is `P = I + Q / q`.
+  With the minus sign the entries fall outside `[0,1]`. Also documented that
+  `q = ufact * max|Q_ii|` with `ufact` defaulting to 1.01, which was omitted.
+- The quasi-stationary power-method example passed the unscaled exit vector to
+  `qstpower`; it takes `xi / q`, and the eigenvalue it returns is scaled to
+  match.
+- `SparseELL` is not a type name; the exported types are `SparseELL1` and
+  `SparseELL2`.
+- Both badges pointed at `okamumu/NMarkov.jl`, which does not exist. The
+  repository is `JuliaReliab/NMarkov.jl`.
+- Dropped the `ZeroOrigin` install line: it is registered in General and
+  resolves on its own. `DEQuadrature` and NMarkov itself are still unregistered
+  and need their URLs.
+
 # NMarkov 0.4.1
 
 Fixes from a full code review of 0.4.0. Behaviour changes are noted explicitly.

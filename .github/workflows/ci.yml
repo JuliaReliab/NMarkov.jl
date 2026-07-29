@@ -5,7 +5,14 @@ on:
     branches:
       - main
       - master
+    tags: ['*']
   pull_request:
+
+concurrency:
+  # Cancel superseded runs on a pull request, but never on a branch: the run on
+  # master is what the README badge reads and what records history.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 
 jobs:
   test:
@@ -14,7 +21,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: ["1.6", "1.9", "1.10"]
+        # min: the lower bound declared in Project.toml (currently 1.10, which
+        # is also the LTS). 1: the latest stable release. Both track upstream on
+        # their own, so this list does not need editing when Julia moves on.
+        version: ["min", "1"]
 
     steps:
       - name: Checkout
@@ -25,22 +35,37 @@ jobs:
         with:
           version: ${{ matrix.version }}
 
-      - name: Cache artifacts
-        uses: actions/cache@v4
-        with:
-          path: ~/.julia/artifacts
-          key: ${{ runner.os }}-julia-artifacts-${{ hashFiles('**/Project.toml') }}
-          restore-keys: ${{ runner.os }}-julia-artifacts-
+      - name: Cache Julia depot
+        uses: julia-actions/cache@v3
 
-      - name: Install dependencies
-        # DEQuadrature is not in General, so it has to come from its URL: the
-        # [sources] entry in Project.toml only works on Julia 1.11+, and this
-        # matrix predates that. ZeroOrigin is in General and needs nothing.
+      - name: Install unregistered dependencies
+        # DEQuadrature is not in General. Julia 1.11+ resolves it from the
+        # [sources] entry in Project.toml; earlier versions ignore that section
+        # and need the URL spelled out. ZeroOrigin is in General, so it needs
+        # nothing either way.
         run: |
-          julia --project=. -e "using Pkg; Pkg.add(PackageSpec(url=\"https://github.com/JuliaReliab/DEQuadrature.jl.git\"))"
+          julia --project=. -e '
+            using Pkg
+            if VERSION < v"1.11"
+                Pkg.add(PackageSpec(url="https://github.com/JuliaReliab/DEQuadrature.jl.git"))
+            end'
 
       - name: Build package
         uses: julia-actions/julia-buildpkg@v1
 
       - name: Run tests
         uses: julia-actions/julia-runtest@v1
+
+      # julia-runtest already collects coverage (its `coverage` input defaults to
+      # true), so only the report and the upload were missing. One job is enough.
+      - name: Process coverage
+        if: matrix.version == '1'
+        uses: julia-actions/julia-processcoverage@v1
+
+      - name: Upload coverage
+        if: matrix.version == '1'
+        uses: codecov/codecov-action@v7
+        with:
+          files: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
