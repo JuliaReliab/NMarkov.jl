@@ -33,9 +33,11 @@ jobs:
           restore-keys: ${{ runner.os }}-julia-artifacts-
 
       - name: Install dependencies
+        # DEQuadrature is not in General, so it has to come from its URL: the
+        # [sources] entry in Project.toml only works on Julia 1.11+, and this
+        # matrix predates that. ZeroOrigin is in General and needs nothing.
         run: |
           julia --project=. -e "using Pkg; Pkg.add(PackageSpec(url=\"https://github.com/JuliaReliab/DEQuadrature.jl.git\"))"
-          julia --project=. -e "using Pkg; Pkg.add(PackageSpec(url=\"https://github.com/JuliaReliab/NMarkov.jl.git\"))"
 
       - name: Build package
         uses: julia-actions/julia-buildpkg@v1
