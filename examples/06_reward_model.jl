@@ -40,10 +40,10 @@ println(ts)
 println()
 
 # Compute transient reward analysis
-# irwd: instantaneous reward
-# crwd: cumulative reward
-# y: state probability at each time
-# cy: cumulative state probability at each time
+# irwd: instantaneous reward at each time point
+# crwd: cumulative reward up to each time point
+# y:    state probability at the LAST time point
+# cy:   cumulative state probability over the whole interval
 irwd, crwd, y, cy = tran(Q, x, r, ts)
 
 println("Instantaneous rewards at each time point:")
@@ -54,13 +54,18 @@ println("Cumulative rewards at each time point:")
 println(crwd)
 println()
 
-println("State probability vectors at each time point:")
-for (i, t) in enumerate(ts)
-    println("t=$t: $(y[i])")
-end
+println("State probability at the last time point t=$(last(ts)):")
+println(y)
 println()
 
-println("Cumulative state probability at each time point:")
+println("Cumulative state probability over [0, $(last(ts))]:")
+println(cy)
+println()
+
+# The state probability at every time point comes from mexpc, which returns one
+# vector per time point.
+println("State probability vectors at each time point:")
+probs, cprobs = mexpc(Q, x, ts, transpose=:T)
 for (i, t) in enumerate(ts)
-    println("t=$t: $(cy[i])")
+    println("t=$t: $(probs[i])")
 end

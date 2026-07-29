@@ -34,16 +34,18 @@ println()
 
 # Compute quasi-stationary vector using Gauss-Seidel with sparse matrix
 spT = sparse(T)
-qv1 = qstgs(spT, xi)
+qv1, gam1, conv1, iter1, rerror1 = qstgs(spT, xi)
 println("Quasi-stationary vector (sparse):")
 println(qv1)
+println("(decay rate gamma: $gam1, converged: $conv1, iterations: $iter1)")
 println()
 
 # Using SparseCSC format
 csc_T = SparseCSC(T)
-qv2 = qstgs(csc_T, xi)
+qv2, gam2, conv2, iter2, rerror2 = qstgs(csc_T, xi)
 println("Quasi-stationary vector (SparseCSC):")
 println(qv2)
+println("(decay rate gamma: $gam2, converged: $conv2, iterations: $iter2)")
 println()
 
 # Verify: υ * T = γ * υ where γ is the minimum eigenvalue of T

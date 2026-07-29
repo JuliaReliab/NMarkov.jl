@@ -207,12 +207,18 @@ is_valid = ctmcstcheck(Q, pi, eps=1.0e-8)  # should be true
 ```
 """
 
-function dtmcstcheck(P::MatT, pis::Vector{Tv}; eps = Tv(1.0e-8)) where {Tv,MatT}
+# The default tolerance follows the element type: a fixed 1.0e-8 sits below the
+# resolution of Float32 (about 1.2e-7), so no Float32 stationary vector could
+# ever pass. sqrt(eps(Tv)) is 1.5e-8 for Float64, i.e. the previous behaviour.
+_stcheck_tol(::Type{Tv}) where {Tv<:AbstractFloat} = sqrt(Base.eps(Tv))
+_stcheck_tol(::Type{Tv}) where {Tv} = Tv(1.0e-8)
+
+function dtmcstcheck(P::MatT, pis::Vector{Tv}; eps = _stcheck_tol(Tv)) where {Tv,MatT}
     v = P' * pis - pis
     maximum(abs.(v)) < eps
 end
 
-function ctmcstcheck(Q::MatT, pis::Vector{Tv}; eps = Tv(1.0e-8)) where {Tv,MatT}
+function ctmcstcheck(Q::MatT, pis::Vector{Tv}; eps = _stcheck_tol(Tv)) where {Tv,MatT}
     v = Q' * pis
     maximum(abs.(v)) < eps
 end
@@ -293,14 +299,16 @@ println("Convergence: \$conv, Iterations: \$iter, Error: \$rerr")
 """
 
 function stsengs(Q::SparseMatrixCSC{Tv,Ti}, pis::Vector{Tv}, b::Vector{Tv};
-    x0::Vector{Tv}=stsenguess(Q), maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
+    x0::Vector{Tv}=stsenguess(Q,Tv), maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
     stsengs(SparseCSC(Q), pis, b, x0=x0, maxiter=maxiter, steps=steps, rtol=rtol)
 end
 
 function stsengs(Q::SparseCSC{Tv,Ti}, pis::Vector{Tv}, b::Vector{Tv};
-    x0::Vector{Tv}=stsenguess(Q), maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
+    x0::Vector{Tv}=stsenguess(Q,Tv), maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
     m, n = size(Q)
     @assert m == n
+    # Same Gauss-Seidel precondition as stgs; see checkgsdiag.
+    checkgsdiag("stsengs", Q)
     @assert ctmcstcheck(Q, pis)
     x = copy(x0)
     iter = 0
@@ -313,14 +321,21 @@ function stsengs(Q::SparseCSC{Tv,Ti}, pis::Vector{Tv}, b::Vector{Tv};
             gsstep!(x, Q, b, alpha=-Tv(1))
             axpy!(-sum(x), pis, x)
         end
-        # rerror = maximum(abs.((x - prevx) ./ x))
-        rerror = maximum(abs.(x - prevx)) / maximum(x)
+        # A sensitivity vector sums to zero, so it has negative entries and
+        # maximum(x) is not a meaningful scale for it (it is 0/0 when the
+        # vector is identically zero, which never satisfies rtol). Normalise by
+        # the largest magnitude instead.
+        den = maximum(abs.(x))
+        rerror = iszero(den) ? zero(Tv) : maximum(abs.(x - prevx)) / den
         iter += steps
         if rerror < rtol
             conv = true
             break
         end
         if iter >= maxiter
+            @warn "stsengs did not converge within $maxiter iterations "  *
+                  "(relative error $rerror, tolerance $rtol); the returned " *
+                  "value is the last iterate"
             break
         end
     end
@@ -402,7 +417,7 @@ P = [0.9  0.1  0.0;
      0.0  0.2  0.8]
 
 # Stationary distribution
-pis = stpower(P)
+pis, conv, iter, rerr = stpower(P)
 
 # Perturbation
 dP = [0.05  -0.05  0.0;
@@ -433,14 +448,21 @@ function stsenpower(P::AbstractMatrix{Tv}, pis::Vector{Tv}, b::Vector{Tv};
             x = Pdash * x + b
             axpy!(-sum(x), pis, x)
         end
-        # rerror = maximum(abs.((x - prevx) ./ x))
-        rerror = maximum(abs.(x - prevx)) / maximum(x)
+        # A sensitivity vector sums to zero, so it has negative entries and
+        # maximum(x) is not a meaningful scale for it (it is 0/0 when the
+        # vector is identically zero, which never satisfies rtol). Normalise by
+        # the largest magnitude instead.
+        den = maximum(abs.(x))
+        rerror = iszero(den) ? zero(Tv) : maximum(abs.(x - prevx)) / den
         iter += steps
         if rerror < rtol
             conv = true
             break
         end
         if iter >= maxiter
+            @warn "stsenpower did not converge within $maxiter iterations "  *
+                  "(relative error $rerror, tolerance $rtol); the returned " *
+                  "value is the last iterate"
             break
         end
     end

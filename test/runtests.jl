@@ -15,3 +15,5 @@ include("test_conv.jl")
 
 include("test_transient.jl")
 
+include("test_regression.jl")
+

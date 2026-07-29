@@ -1,10 +1,6 @@
 import LinearAlgebra
 import SparseArrays
 
-function Base.iszero(x::Float64)
-    x ≈ 0.0
-end
-
 """
     AbstractSparseM{Tv,Ti} <: AbstractMatrix{Tv}
 
@@ -259,20 +255,65 @@ function Base.size(A::AbstractSparseM{Tv,Ti}) where {Tv,Ti}
     return (A.m, A.n)
 end
 
-function Base.eachindex(A::AbstractSparseM{Tv,Ti}) where {Tv,Ti}
-    return eachindex(A.val)
-end
+# `size` reports the logical shape, so `length`/`eachindex`/`getindex` must
+# agree with it: they are the AbstractMatrix contract that every generic
+# fallback in Base and LinearAlgebra relies on. Use `nnz(A)` and `A.val` to
+# reach the stored entries instead.
 
 function Base.length(A::AbstractSparseM{Tv,Ti}) where {Tv,Ti}
-    return length(A.val)
+    m, n = size(A)
+    return m * n
 end
 
-function Base.getindex(A::AbstractSparseM{Tv,Ti}, i::Ti) where {Tv,Ti}
-    A.val[i]
+function Base.getindex(A::AbstractSparseM{Tv,Ti}, i::Integer, j::Integer) where {Tv,Ti}
+    @boundscheck checkbounds(A, i, j)
+    z = _findz(A, i, j)
+    z == 0 ? zero(Tv) : A.val[z]
 end
 
-function Base.setindex!(A::AbstractSparseM{Tv,Ti}, value::Tv, i::Ti) where {Tv,Ti}
-    A.val[i] = value
+function Base.getindex(A::AbstractSparseM{Tv,Ti}, k::Integer) where {Tv,Ti}
+    m, n = size(A)
+    @boundscheck checkbounds(A, k)
+    i = mod1(k, m)
+    j = div(k - i, m) + 1
+    A[i, j]
+end
+
+# Writing is only possible where the sparsity pattern already stores an entry;
+# creating a new one would have to rebuild the index arrays.
+function Base.setindex!(A::AbstractSparseM{Tv,Ti}, value, i::Integer, j::Integer) where {Tv,Ti}
+    @boundscheck checkbounds(A, i, j)
+    z = _findz(A, i, j)
+    z == 0 && throw(ArgumentError(
+        "cannot write the element ($i,$j): it is not stored in the sparsity pattern"))
+    A.val[z] = convert(Tv, value)
+end
+
+"""
+    _findz(A, i, j)
+
+Index into `A.val` of the stored entry at `(i,j)`, or 0 when the sparsity
+pattern does not hold that position.
+"""
+function _findz(A::SparseCSR{Tv,Ti}, i::Integer, j::Integer) where {Tv,Ti}
+    @inbounds for z = A.rowptr[i]:A.rowptr[i+1]-1
+        A.colind[z] == j && return z
+    end
+    0
+end
+
+function _findz(A::SparseCSC{Tv,Ti}, i::Integer, j::Integer) where {Tv,Ti}
+    @inbounds for z = A.colptr[j]:A.colptr[j+1]-1
+        A.rowind[z] == i && return z
+    end
+    0
+end
+
+function _findz(A::SparseCOO{Tv,Ti}, i::Integer, j::Integer) where {Tv,Ti}
+    @inbounds for z = 1:length(A.val)
+        A.rowind[z] == i && A.colind[z] == j && return z
+    end
+    0
 end
 
 # function Base.iterate(A::AbstractSparseM{Tv,Ti}, i::Ti = 1) where {Tv,Ti}
@@ -345,7 +386,8 @@ Internal function to convert a matrix to CSR (Compressed Sparse Row) format.
 - `SparseCSR{Tv,Ti}`: Matrix in CSR format
 """
 function _tocsr(A::Matrix{Tv}, ::Type{Ti})::SparseCSR{Tv,Ti} where {Tv, Ti}
-    m, n = size(A)
+    # size returns Int, but the struct stores the dimensions as Ti
+    m, n = Ti.(size(A))
     rowptr = Vector{Ti}(undef, m+1)
     colind = Vector{Ti}()
     val = Vector{Tv}()
@@ -400,7 +442,7 @@ Internal function to convert a matrix to CSC (Compressed Sparse Column) format.
 - `SparseCSC{Tv,Ti}`: Matrix in CSC format
 """
 function _tocsc(A::Matrix{Tv}, ::Type{Ti})::SparseCSC{Tv,Ti} where {Tv, Ti}
-    m, n = size(A)
+    m, n = Ti.(size(A))
     colptr = Vector{Ti}(undef, n+1)
     rowind = Vector{Ti}()
     val = Vector{Tv}()
@@ -459,7 +501,7 @@ Internal function to convert a matrix to COO (Coordinate) format.
 - `SparseCOO{Tv,Ti}`: Matrix in COO format
 """
 function _tocoo(A::Matrix{Tv}, ::Type{Ti})::SparseCOO{Tv,Ti} where {Tv, Ti}
-    m, n = size(A)
+    m, n = Ti.(size(A))
     rowind = Vector{Ti}()
     colind = Vector{Ti}()
     val = Vector{Tv}()
@@ -508,6 +550,65 @@ function _tocoo(A::SparseCSC{Tv,Ti})::SparseCOO{Tv,Ti} where {Tv, Ti}
 end
 
 """
+    adddiag(A)
+
+Return a matrix equal to `A` whose diagonal entries are all present in the
+sparsity pattern, adding structural zeros where they are missing.
+
+A dense `Matrix` is returned unchanged, and so is a sparse matrix that already
+stores its whole diagonal — that case costs one `hasfulldiag` scan and the
+length-n index vector `spdiag` builds, not a rebuild of the sparsity pattern.
+
+This matters for uniformization: `unif` adds 1 to every diagonal entry through
+`spdiag`, which can only write to entries the pattern actually stores. A CTMC
+with an absorbing state has a zero diagonal entry that dense-to-sparse
+conversion drops, so without this the uniformized matrix would not be
+stochastic.
+"""
+adddiag(A::Matrix) = A
+
+function adddiag(A::SparseCOO{Tv,Ti}) where {Tv,Ti}
+    m, n = size(A)
+    k = min(m, n)
+    stored = falses(k)
+    @inbounds for z = 1:SparseArrays.nnz(A)
+        i = A.rowind[z]
+        if i == A.colind[z] && i <= k
+            stored[i] = true
+        end
+    end
+    all(stored) && return A
+    rowind = copy(A.rowind)
+    colind = copy(A.colind)
+    val = copy(A.val)
+    @inbounds for i = 1:k
+        if !stored[i]
+            push!(rowind, Ti(i))
+            push!(colind, Ti(i))
+            push!(val, zero(Tv))
+        end
+    end
+    SparseCOO(A.m, A.n, val, rowind, colind)
+end
+
+# Check first, convert only if something is missing: rebuilding the index arrays
+# via COO costs O(nnz) allocations, while hasfulldiag is an O(n) scan.
+function adddiag(A::SparseCSR{Tv,Ti}) where {Tv,Ti}
+    hasfulldiag(A) && return A
+    _tocsr(adddiag(_tocoo(A)))
+end
+
+function adddiag(A::SparseCSC{Tv,Ti}) where {Tv,Ti}
+    hasfulldiag(A) && return A
+    _tocsc(adddiag(_tocoo(A)))
+end
+
+function adddiag(A::SparseArrays.SparseMatrixCSC{Tv,Ti}) where {Tv,Ti}
+    hasfulldiag(A) && return A
+    SparseArrays.sparse(_tocsc(adddiag(_tocoo(_tocsc(A)))))
+end
+
+"""
     _todense(A)
 
 Internal function to convert a sparse matrix to dense Matrix format.
@@ -520,7 +621,7 @@ Internal function to convert a sparse matrix to dense Matrix format.
 """
 function _todense(A::SparseCSR{Tv,Ti})::Matrix{Tv} where {Tv, Ti}
     m, n = size(A)
-    M = zeros(m,n)
+    M = zeros(Tv, m, n)
     for i = 1:m
         for z = A.rowptr[i]:A.rowptr[i+1]-1
             j = A.colind[z]
@@ -532,7 +633,7 @@ end
 
 function _todense(A::SparseCSC{Tv,Ti})::Matrix{Tv} where {Tv, Ti}
     m, n = size(A)
-    M = zeros(m,n)
+    M = zeros(Tv, m, n)
     for j = 1:n
         for z = A.colptr[j]:A.colptr[j+1]-1
             i = A.rowind[z]
@@ -544,7 +645,7 @@ end
 
 function _todense(A::SparseCOO{Tv,Ti})::Matrix{Tv} where {Tv, Ti}
     m, n = size(A)
-    M = zeros(m,n)
+    M = zeros(Tv, m, n)
     for z = 1:SparseArrays.nnz(A)
         i = A.rowind[z]
         j = A.colind[z]

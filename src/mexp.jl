@@ -63,16 +63,17 @@ mixed_prob = mexp(Q, x, dist)
 
 Compute the probability vector for a CTMC at a specific time using uniformization.
 
-Computes `exp(Q' * t) * x` where Q is the CTMC generator matrix.
+Computes `exp(Q * t) * x` by default (`transpose=:N`), or `exp(Q' * t) * x` with
+`transpose=:T`.
 
 ## Arguments
 
 - `Q::AbstractMatrix`: CTMC generator (kernel) matrix of size (n, n)
 - `x::AbstractArray`: Initial state vector or reward vector (any numeric type, auto-converted)
-- `t::Union{Int, Float32, Float64}`: Time at which to compute the state
+- `t::Real`: Time at which to compute the state (converted to the element type of Q)
 - `transpose::Symbol=:N`: Computation direction
-  - `:N` for forward: `exp(Q' * t) * x`
-  - `:T` for backward: `exp(Q * t) * x`
+  - `:N` (default): `exp(Q * t) * x`
+  - `:T`: `exp(Q' * t) * x`
 - `ufact::Real=1.01`: Uniformization factor (>1.0); controls DTMC transition scaling
 - `eps::Real=1.0e-8`: Tolerance for Poisson probability truncation
 - `rmax::Int=500`: Maximum Poisson terms; raises error if exceeded
@@ -115,17 +116,16 @@ prob_t2 = mexp(Q, x, 2.0)  # Probability after 2 time units
 ```
 """
 
-# Wrapper function to handle type conversions (for mixed types)
-function mexp(Q::AbstractMatrix{Tv}, x::AbstractArray, t::Union{Int, Float32, Float16};
+# Single public method: every argument is converted to the element type of Q and
+# the work is then done by _mexp. Keeping the conversion and the kernel in
+# separate functions means the wrapper can never dispatch back to itself.
+function mexp(Q::AbstractMatrix{Tv}, x::AbstractArray, t::Real;
     transpose::Symbol=:N, ufact::Real=1.01, eps::Real=1.0e-8, rmax=500) where {Tv}
-    x_float = vec(convert(Array{Tv}, x))
-    t_float = convert(Tv, t)
-    ufact_float = convert(Tv, ufact)
-    eps_float = convert(Tv, eps)
-    return mexp(Q, x_float, t_float; transpose=transpose, ufact=ufact_float, eps=eps_float, rmax=rmax)
+    _mexp(Q, asarray(Tv, x), convert(Tv, checktime(t));
+        transpose=transpose, ufact=convert(Tv, ufact), eps=convert(Tv, eps), rmax=rmax)
 end
 
-@inbounds function mexp(Q::AbstractMatrix{Tv}, x::ArrayT, t::Tv;
+@inbounds function _mexp(Q::AbstractMatrix{Tv}, x::ArrayT, t::Tv;
     transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv, ArrayT <: AbstractArray{Tv}}
     m, n = size(Q)
     @assert m == n
@@ -140,12 +140,12 @@ end
     @origin (poi => 0) begin
         axpy!(poi[0], xtmp, y)
         for i = 1:right
-            matmul!(transpose, 1.0, P, xtmp, false, tmpv)
+            matmul!(transpose, one(Tv), P, xtmp, false, tmpv)
             @. xtmp = tmpv
             axpy!(poi[i], xtmp, y)
         end
     end
-    scal!(1/weight, y)
+    scal!(one(Tv)/weight, y)
 end
 
 """
@@ -153,18 +153,19 @@ end
 
 Compute both the probability vector and cumulative integral for a CTMC at time t.
 
-Computes two quantities using uniformization:
-- Instantaneous: `exp(Q' * t) * x`
-- Cumulative: `int_0^t exp(Q' * u) * x du`
+Computes two quantities using uniformization (shown for the default
+`transpose=:N`; with `:T` read Q' for Q):
+- Instantaneous: `exp(Q * t) * x`
+- Cumulative: `int_0^t exp(Q * u) * x du`
 
 ## Arguments
 
 - `Q::AbstractMatrix`: CTMC generator matrix of size (n, n)
 - `x::AbstractArray`: Initial state or reward vector (any numeric type)
-- `t::Union{Int, Float32, Float64}`: Time at which to evaluate
+- `t::Real`: Time at which to evaluate (converted to the element type of Q)
 - `transpose::Symbol=:N`: Computation direction
-  - `:N` for forward: `exp(Q' * t) * x`
-  - `:T` for backward: `exp(Q * t) * x`
+  - `:N` (default): `exp(Q * t) * x`
+  - `:T`: `exp(Q' * t) * x`
 - `ufact::Real=1.01`: Uniformization factor (must be > 1.0)
 - `eps::Real=1.0e-8`: Tolerance for Poisson truncation
 - `rmax::Int=500`: Maximum Poisson terms
@@ -212,17 +213,13 @@ prob, cum_reward = mexpc(Q, x, 3.0)
 ```
 """
 
-# Wrapper function to handle type conversions (for mixed types)
-function mexpc(Q::AbstractMatrix{Tv}, x::AbstractArray, t::Union{Int, Float32, Float16};
+function mexpc(Q::AbstractMatrix{Tv}, x::AbstractArray, t::Real;
     transpose::Symbol=:N, ufact::Real=1.01, eps::Real=1.0e-8, rmax=500) where {Tv}
-    x_float = vec(convert(Array{Tv}, x))
-    t_float = convert(Tv, t)
-    ufact_float = convert(Tv, ufact)
-    eps_float = convert(Tv, eps)
-    return mexpc(Q, x_float, t_float; transpose=transpose, ufact=ufact_float, eps=eps_float, rmax=rmax)
+    _mexpc(Q, asarray(Tv, x), convert(Tv, checktime(t));
+        transpose=transpose, ufact=convert(Tv, ufact), eps=convert(Tv, eps), rmax=rmax)
 end
 
-@inbounds function mexpc(Q::AbstractMatrix{Tv}, x::ArrayT, t::Tv;
+@inbounds function _mexpc(Q::AbstractMatrix{Tv}, x::ArrayT, t::Tv;
     transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv, ArrayT <: AbstractArray{Tv}}
     m, n = size(Q)
     @assert m == n
@@ -239,13 +236,13 @@ end
         axpy!(poi[0], xtmp, y)
         axpy!(cpoi[0], xtmp, cy)
         for i = 1:right
-            matmul!(transpose, 1.0, P, xtmp, false, tmpv)
+            matmul!(transpose, one(Tv), P, xtmp, false, tmpv)
             @. xtmp = tmpv
             axpy!(poi[i], xtmp, y)
             axpy!(cpoi[i], xtmp, cy)
         end
     end
-    scal!(1/weight, y), scal!(1/(qv*weight), cy)
+    scal!(one(Tv)/weight, y), scal!(one(Tv)/(qv*weight), cy)
 end
 
 """
@@ -261,8 +258,8 @@ Computes `exp(Q' * t_i) * x` for each time t_i in ts.
 - `x::AbstractArray`: Initial state or reward vector
 - `ts::AbstractVector`: Sorted time points (any numeric type, auto-converted)
 - `transpose::Symbol=:N`: Computation direction
-  - `:N` for forward: `exp(Q' * t) * x`
-  - `:T` for backward: `exp(Q * t) * x`
+  - `:N` (default): `exp(Q * t) * x`
+  - `:T`: `exp(Q' * t) * x`
 - `ufact::Real=1.01`: Uniformization factor
 - `eps::Real=1.0e-8`: Tolerance for Poisson truncation
 - `rmax::Int=500`: Maximum Poisson terms
@@ -335,31 +332,24 @@ results = mexp(Q, x, times)
 ```
 """
 
-# Wrapper function to handle type conversions (for mixed types)
 function mexp(Q::AbstractMatrix{Tv}, x::AbstractArray, ts::AbstractVector;
     transpose::Symbol=:N, ufact::Real=1.01, eps::Real=1.0e-8, rmax=500) where {Tv}
-    if !(eltype(x) <: Tv && eltype(ts) <: Tv)
-        x_float = vec(convert(Array{Tv}, x))
-        ts_float = convert(Vector{Tv}, ts)
-        ufact_float = convert(Tv, ufact)
-        eps_float = convert(Tv, eps)
-        return mexp(Q, x_float, ts_float; transpose=transpose, ufact=ufact_float, eps=eps_float, rmax=rmax)
-    end
-    error("Method not found for these exact types")
+    _mexp(Q, asarray(Tv, x), asvector(Tv, checktimes(ts));
+        transpose=transpose, ufact=convert(Tv, ufact), eps=convert(Tv, eps), rmax=rmax)
 end
 
-@inbounds function mexp(Q::AbstractMatrix{Tv}, x::ArrayT, ts::AbstractVector{Tv};
+@inbounds function _mexp(Q::AbstractMatrix{Tv}, x::ArrayT, ts::AbstractVector{Tv};
     transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
     m, n = size(Q)
     @assert m == n
-    dt, maxt = itime(sort(ts))
+    dt, maxt = itime(ts)
     P, qv = unif(Q, ufact)
     right = rightbound(qv*maxt, eps)
     @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
     prob = Vector{Tv}(undef, right+1)
 
-    result = Vector{Any}(undef, length(dt)) # TODO: memory usage?
     y0 = copy(x)
+    result = Vector{typeof(y0)}(undef, length(dt))
     xtmp = similar(x)
     tmpv = similar(x)
     for k = eachindex(dt)
@@ -371,12 +361,12 @@ end
         @origin (prob => 0) begin
             axpy!(prob[0], xtmp, y1)
             for i = 1:right
-                matmul!(transpose, 1.0, P, xtmp, false, tmpv)
+                matmul!(transpose, one(Tv), P, xtmp, false, tmpv)
                 @. xtmp = tmpv
                 axpy!(prob[i], xtmp, y1)
             end
         end
-        result[k] = scal!(1/weight, y1)
+        result[k] = scal!(one(Tv)/weight, y1)
         y0 = y1
     end
     result
@@ -459,7 +449,13 @@ states, cum_rewards = mexpc(Q, x, times)
 ```
 """
 
-@inbounds function mexpc(Q::AbstractMatrix{Tv}, x::ArrayT, ts::AbstractVector{Tv};
+function mexpc(Q::AbstractMatrix{Tv}, x::AbstractArray, ts::AbstractVector;
+    transpose::Symbol=:N, ufact::Real=1.01, eps::Real=1.0e-8, rmax=500) where {Tv}
+    _mexpc(Q, asarray(Tv, x), asvector(Tv, checktimes(ts));
+        transpose=transpose, ufact=convert(Tv, ufact), eps=convert(Tv, eps), rmax=rmax)
+end
+
+@inbounds function _mexpc(Q::AbstractMatrix{Tv}, x::ArrayT, ts::AbstractVector{Tv};
     transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
     m, n = size(Q)
     @assert m == n
@@ -470,9 +466,9 @@ states, cum_rewards = mexpc(Q, x, times)
     prob = Vector{Tv}(undef, right+1)
     cprob = Vector{Tv}(undef, right+1)
 
-    result = Vector{Any}(undef, length(dt)) # TODO: memory usage?
-    cresult = Vector{Any}(undef, length(dt)) # TODO: memory usage?
     y0 = copy(x)
+    result = Vector{typeof(y0)}(undef, length(dt))
+    cresult = Vector{typeof(y0)}(undef, length(dt))
     cy = zero(x)
     xtmp = similar(x)
     tmpv = similar(x)
@@ -486,53 +482,19 @@ states, cum_rewards = mexpc(Q, x, times)
             axpy!(prob[0], xtmp, y1)
             axpy!(cprob[0]/(qv*weight), xtmp, cy)
             for i = 1:right
-                matmul!(transpose, 1.0, P, xtmp, false, tmpv)
+                matmul!(transpose, one(Tv), P, xtmp, false, tmpv)
                 @. xtmp = tmpv
                 axpy!(prob[i], xtmp, y1)
                 axpy!(cprob[i]/(qv*weight), xtmp, cy)
             end
         end
-        result[k] = scal!(1/weight, y1)
+        result[k] = scal!(one(Tv)/weight, y1)
         cresult[k] = copy(cy)
         y0 = y1
     end
     result, cresult
 end
 
-# function mexpc(Q::AbstractMatrix{Tv}, x::ArrayT, ts::AbstractVector{Tv};
-#     transpose::Symbol=:N, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
-#     m, n = size(Q)
-#     @assert m == n
-#     dt, maxt = itime(ts)
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*maxt, eps) + 1
-#     @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
-#     prob = Vector{Tv}(undef, right+1)
-#     cprob = Vector{Tv}(undef, right+1)
-
-#     result = Vector{Any}(undef, length(dt)) # TODO: memory usage?
-#     cresult = Vector{Any}(undef, length(dt)) # TODO: memory usage?
-#     y0 = copy(x)
-#     cy = zero(x)
-#     tmp = similar(x)
-#     xtmp = similar(x)
-#     tmpv = similar(x)
-#     for k = eachindex(dt)
-#         right = rightbound(qv*dt[k], eps) + 1
-#         weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
-
-#         y1 = zero(y0)
-
-
-#         tmp .= Tv(0)
-#         cunifstep!(transpose, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
-#         cy .+= tmp
-#         result[k] = copy(y1)
-#         cresult[k] = copy(cy)
-#         y0 .= y1
-#     end
-#     return result, cresult
-# end
 
 """
     mexpmix(f, Q, x; bounds=(0, Inf), transpose=:N, ufact=1.01, eps=1.0e-8, rmax=500)
@@ -629,30 +591,6 @@ mixed2 = mexpmix(t -> pdf(dist, t), Q, x; bounds=(0, 20))
 ```
 """
 
-# function mexpmix(f::Any, Q::AbstractMatrix{Tv}, x::ArrayT;
-#     bounds=(Tv(0.0), Tv(Inf)), transpose::Symbol=:N,
-#     ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
-#     m, n = size(Q)
-#     @assert m == n
-#     de = deint(f, bounds[1], bounds[2])
-#     dt, maxt = itime(de.x)
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*maxt, eps)
-#     @assert right <= rmax "Time interval is too large. rmax should be changed: right = $right (rmax: $rmax)."
-#     prob = Vector{Tv}(undef, right+1)
-#     y0, y1 = copy(x), similar(x)
-#     result = zero(x)
-#     @inbounds for i in eachindex(dt)
-#         right = rightbound(qv*dt[i], eps)
-#         weight = poipmf!(qv*dt[i], prob; left=0, right=right)
-#         y1 .= Tv(0)
-#         unifstep!(transpose, P, prob, (0, right), weight, y0, y1)
-#         @axpy(de.w[i], y1, result)
-#         y0 .= y1
-#     end
-#     @scal(de.h, result)
-#     return result
-# end
 
 @inbounds function mexpmix(f::Any, Q::AbstractMatrix{Tv}, x::ArrayT;
     bounds=(Tv(0.0), Tv(Inf)), transpose::Symbol=:N,
@@ -678,16 +616,16 @@ mixed2 = mexpmix(t -> pdf(dist, t), Q, x; bounds=(0, 20))
         @origin (prob => 0) begin
             axpy!(prob[0], y0, y1)
             for i = 1:right
-                matmul!(transpose, 1.0, P, y0, false, tmpv)
+                matmul!(transpose, one(Tv), P, y0, false, tmpv)
                 @. y0 = tmpv
                 axpy!(prob[i], y0, y1)
             end
         end
-        scal!(1/weight, y1)
-        axpy!(de.w[k], y1, result)
+        scal!(one(Tv)/weight, y1)
+        axpy!(convert(Tv, de.w[k]), y1, result)
         @. y0 = y1
     end
-    scal!(de.h, result)
+    scal!(convert(Tv, de.h), result)
 end
 
 function mexp(Q::AbstractMatrix{Tv}, x::ArrayT, dist::UnivariateDistribution;
@@ -792,37 +730,6 @@ state_mix, reward_mix = mexpcmix(t -> 0.5*exp(-0.5*t), Q, x; bounds=(0, 30))
 ```
 """
 
-# function mexpcmix(f::Any, Q::AbstractMatrix{Tv}, x::ArrayT;
-#     bounds=(Tv(0.0), Tv(Inf)), transpose::Symbol=:N,
-#     ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
-#     m, n = size(Q)
-#     @assert m == n
-#     de = deint(f, bounds[1], bounds[2])
-#     dt, maxt = itime(de.x)
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*maxt, eps) + 1
-#     @assert right <= rmax "Time interval is too large. rmax should be changed: right = $right (rmax: $rmax)."
-#     prob = Vector{Tv}(undef, right+1)
-#     cprob = Vector{Tv}(undef, right+1)
-#     y0, y1 = copy(x), similar(x)
-#     cy = zero(x)
-#     tmp = similar(x)
-#     result, cresult = zero(x), zero(x)
-#     @inbounds for i in eachindex(dt)
-#         right = rightbound(qv*dt[i], eps) + 1
-#         weight = cpoipmf!(qv*dt[i], prob, cprob; left=0, right=right)
-#         tmp .= Tv(0)
-#         y1 .= Tv(0)
-#         cunifstep!(transpose, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
-#         cy .+= tmp
-#         @axpy(de.w[i], y1, result)
-#         @axpy(de.w[i], cy, cresult)
-#         y0 .= y1
-#     end
-#     @scal(de.h, result)
-#     @scal(de.h, cresult)
-#     return result, cresult
-# end
 
 @inbounds function mexpcmix(f::Any, Q::AbstractMatrix{Tv}, x::ArrayT;
     bounds=(Tv(0.0), Tv(Inf)), transpose::Symbol=:N,
@@ -852,18 +759,18 @@ state_mix, reward_mix = mexpcmix(t -> 0.5*exp(-0.5*t), Q, x; bounds=(0, 30))
             axpy!(prob[0], y0, y1)
             axpy!(cprob[0]/(qv*weight), y0, cy)
             for i = 1:right
-                matmul!(transpose, 1.0, P, y0, false, tmpv)
+                matmul!(transpose, one(Tv), P, y0, false, tmpv)
                 @. y0 = tmpv
                 axpy!(prob[i], y0, y1)
                 axpy!(cprob[i]/(qv*weight), y0, cy)
             end
         end
-        scal!(1/weight, y1)
-        axpy!(de.w[k], y1, result)
-        axpy!(de.w[k], cy, cresult)
+        scal!(one(Tv)/weight, y1)
+        axpy!(convert(Tv, de.w[k]), y1, result)
+        axpy!(convert(Tv, de.w[k]), cy, cresult)
         @. y0 = y1
     end
-    scal!(de.h, result), scal!(de.h, cresult)
+    scal!(convert(Tv, de.h), result), scal!(convert(Tv, de.h), cresult)
 end
 
 function mexpc(Q::AbstractMatrix{Tv}, x::ArrayT, dist::UnivariateDistribution;

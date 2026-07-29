@@ -77,53 +77,12 @@ inst, cum, x_final, r_final = tran(Q, x, r, ts)
 """
 function tran(Q::AbstractMatrix{Tv}, x::AbstractArray, r::AbstractArray, ts::AbstractVector;
     forward::Symbol=:T, ufact::Real=1.01, eps::Real=1.0e-8, rmax=500) where {Tv}
-    if !(eltype(x) <: Tv && eltype(r) <: Tv && eltype(ts) <: Tv)
-        x_float = vec(convert(Array{Tv}, x))
-        r_float = vec(convert(Array{Tv}, r))
-        ts_float = convert(Vector{Tv}, ts)
-        ufact_float = convert(Tv, ufact)
-        eps_float = convert(Tv, eps)
-        return tran(Q, x_float, r_float, ts_float; forward=forward, ufact=ufact_float, eps=eps_float, rmax=rmax)
-    end
-    error("Method not found for these exact types")
+    # asarray keeps the shape: `x` and `r` may be matrices, and the matrix
+    # methods of _tran are only reachable if that shape survives conversion.
+    _tran(Q, asarray(Tv, x), asarray(Tv, r), asvector(Tv, checktimes(ts)),
+        Val{forward}, convert(Tv, ufact), convert(Tv, eps), rmax)
 end
 
-function tran(Q::AbstractMatrix{Tv}, x::ArrayT1, r::ArrayT2, ts::AbstractVector{Tv};
-    forward::Symbol=:T, ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT1<:AbstractArray{Tv},ArrayT2<:AbstractArray{Tv}}
-    _tran(Q, x, r, ts, Val{forward}, ufact, eps, rmax)
-end
-
-# function _tran(Q::AbstractMatrix{Tv}, x::Array{Tv,1}, r::Array{Tv,1}, ts::AbstractVector{Tv},
-#     ::Type{Val{:T}}, ufact::Tv, eps::Tv, rmax) where Tv
-#     m, n = size(Q)
-#     @assert m == n
-#     dt, maxt = itime(ts)
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*maxt, eps) + 1
-#     @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
-#     prob = Vector{Tv}(undef, right+1)
-#     cprob = Vector{Tv}(undef, right+1)
-#     result = Vector{Tv}(undef, length(dt))
-#     cresult = Vector{Tv}(undef, length(dt))
-#     y0 = copy(x)
-#     y1 = similar(x)
-#     cy = zero(x)
-#     tmp = similar(x)
-#     @inbounds for k = eachindex(dt)
-#         right = rightbound(qv*dt[k], eps) + 1
-#         weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
-#         y1 .= Tv(0)
-#         tmp .= Tv(0)
-#         cunifstep!(:T, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
-#         cy .+= tmp
-#         result[k] = @dot(y1, r)
-#         cresult[k] = @dot(cy, r)
-#         y0 .= y1
-#     end
-#     return result, cresult, y1, cy
-# end
-
-### vec * vec
 
 @inbounds function _tran(Q::AbstractMatrix{Tv}, x::Array{Tv,1}, r::Array{Tv,1}, ts::AbstractVector{Tv},
     ::Type{Val{:T}}, ufact::Tv, eps::Tv, rmax) where Tv
@@ -151,7 +110,7 @@ end
             axpy!(prob[0]/weight, y0, y1)
             axpy!(cprob[0]/(qv*weight), y0, cy)
             for i = 1:right
-                matmul!(:T, 1.0, P, y0, false, tmpv)
+                matmul!(:T, one(Tv), P, y0, false, tmpv)
                 @. y0 = tmpv
                 axpy!(prob[i]/weight, y0, y1)
                 axpy!(cprob[i]/(qv*weight), y0, cy)
@@ -164,35 +123,6 @@ end
     result, cresult, y1, cy
 end
 
-# function _tran(Q::AbstractMatrix{Tv}, x::Array{Tv,1}, r::Array{Tv,1}, ts::AbstractVector{Tv},
-#     ::Type{Val{:N}}, ufact::Tv, eps::Tv, rmax) where Tv
-#     m, n = size(Q)
-#     @assert m == n
-#     dt, maxt = itime(ts)
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*maxt, eps) + 1
-#     @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
-#     prob = Vector{Tv}(undef, right+1)
-#     cprob = Vector{Tv}(undef, right+1)
-#     result = Vector{Tv}(undef, length(dt))
-#     cresult = Vector{Tv}(undef, length(dt))
-#     y0 = copy(r)
-#     y1 = similar(r)
-#     cy = zero(r)
-#     tmp = similar(r)
-#     @inbounds for k = eachindex(dt)
-#         right = rightbound(qv*dt[k], eps) + 1
-#         weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
-#         y1 .= Tv(0)
-#         tmp .= Tv(0)
-#         cunifstep!(:N, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
-#         cy .+= tmp
-#         result[k] = @dot(x, y1)
-#         cresult[k] = @dot(x, cy)
-#         y0 .= y1
-#     end
-#     return result, cresult, y1, cy
-# end
 
 @inbounds function _tran(Q::AbstractMatrix{Tv}, x::Array{Tv,1}, r::Array{Tv,1}, ts::AbstractVector{Tv},
     ::Type{Val{:N}}, ufact::Tv, eps::Tv, rmax) where Tv
@@ -220,7 +150,7 @@ end
             axpy!(prob[0]/weight, y0, y1)
             axpy!(cprob[0]/(qv*weight), y0, cy)
             for i = 1:right
-                matmul!(:N, 1.0, P, y0, false, tmpv)
+                matmul!(:N, one(Tv), P, y0, false, tmpv)
                 @. y0 = tmpv
                 axpy!(prob[i]/weight, y0, y1)
                 axpy!(cprob[i]/(qv*weight), y0, cy)
@@ -235,35 +165,8 @@ end
 
 ### vec * mat
 
-# function _tran(Q::AbstractMatrix{Tv}, x::Array{Tv,1}, r::ArrayT2, ts::AbstractVector{Tv},
-#     ::Type{Val{:T}}, ufact::Tv, eps::Tv, rmax) where {Tv,ArrayT2<:AbstractArray{Tv}}
-#     m, n = size(Q)
-#     @assert m == n
-#     dt, maxt = itime(ts)
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*maxt, eps) + 1
-#     @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
-#     prob = Vector{Tv}(undef, right+1)
-#     cprob = Vector{Tv}(undef, right+1)
-#     result = Vector{Any}(undef, length(dt))
-#     cresult = Vector{Any}(undef, length(dt))
-#     y0 = copy(x)
-#     y1 = similar(x)
-#     cy = zero(x)
-#     tmp = similar(x)
-#     @inbounds for k = eachindex(dt)
-#         right = rightbound(qv*dt[k], eps) + 1
-#         weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
-#         y1 .= Tv(0)
-#         tmp .= Tv(0)
-#         cunifstep!(:T, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
-#         cy .+= tmp
-#         result[k] = r' * y1
-#         cresult[k] = r' * cy
-#         y0 .= y1
-#     end
-#     return result, cresult, y1, cy
-# end
+# x is a single initial vector and r holds several reward vectors as columns,
+# so each time point yields one reward per column of r.
 
 @inbounds function _tran(Q::AbstractMatrix{Tv}, x::Array{Tv,1}, r::ArrayT2, ts::AbstractVector{Tv},
     ::Type{Val{:T}}, ufact::Tv, eps::Tv, rmax) where {Tv,ArrayT2<:AbstractArray{Tv}}
@@ -275,8 +178,8 @@ end
     @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
     prob = Vector{Tv}(undef, right+1)
     cprob = Vector{Tv}(undef, right+1)
-    result = Vector{Any}(undef, length(dt))
-    cresult = Vector{Any}(undef, length(dt))
+    result = Vector{Vector{Tv}}(undef, length(dt))
+    cresult = Vector{Vector{Tv}}(undef, length(dt))
 
     y0 = copy(x)
     y1 = similar(x)
@@ -291,7 +194,7 @@ end
             axpy!(prob[0]/weight, y0, y1)
             axpy!(cprob[0]/(qv*weight), y0, cy)
             for i = 1:right
-                matmul!(:T, 1.0, P, y0, false, tmpv)
+                matmul!(:T, one(Tv), P, y0, false, tmpv)
                 @. y0 = tmpv
                 axpy!(prob[i]/weight, y0, y1)
                 axpy!(cprob[i]/(qv*weight), y0, cy)
@@ -304,41 +207,8 @@ end
     result, cresult, y1, cy
 end
 
-### mat * mat
-
-# function _tran(Q::AbstractMatrix{Tv}, x::ArrayT1, r::ArrayT2, ts::AbstractVector{Tv},
-#     ::Type{Val{:T}}, ufact::Tv, eps::Tv, rmax) where {Tv,ArrayT1<:AbstractArray{Tv},ArrayT2<:AbstractArray{Tv}}
-#     m, n = size(Q)
-#     @assert m == n
-#     dt, maxt = itime(ts)
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*maxt, eps) + 1
-#     @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
-#     prob = Vector{Tv}(undef, right+1)
-#     cprob = Vector{Tv}(undef, right+1)
-#     xdash = x'
-#     result = Vector{Any}(undef, length(dt))
-#     cresult = Vector{Any}(undef, length(dt))
-#     y0 = copy(xdash)
-#     y1 = similar(xdash)
-#     cy = zero(xdash)
-#     tmp = similar(xdash)
-#     @inbounds for k = eachindex(dt)
-#         right = rightbound(qv*dt[k], eps) + 1
-#         weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
-#         y1 .= Tv(0)
-#         tmp .= Tv(0)
-#         cunifstep!(:T, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
-#         cy .+= tmp
-#         result[k] = y1' * r
-#         cresult[k] = cy' * r
-#         y0 .= y1
-#     end
-#     return result, cresult, y1', cy'
-# end
-
-@inbounds function _tran(Q::AbstractMatrix{Tv}, x::ArrayT1, r::ArrayT2, ts::AbstractVector{Tv},
-    ::Type{Val{:T}}, ufact::Tv, eps::Tv, rmax) where {Tv,ArrayT1<:AbstractArray{Tv},ArrayT2<:AbstractArray{Tv}}
+@inbounds function _tran(Q::AbstractMatrix{Tv}, x::Array{Tv,1}, r::ArrayT2, ts::AbstractVector{Tv},
+    ::Type{Val{:N}}, ufact::Tv, eps::Tv, rmax) where {Tv,ArrayT2<:AbstractArray{Tv}}
     m, n = size(Q)
     @assert m == n
     dt, maxt = itime(ts)
@@ -347,78 +217,8 @@ end
     @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
     prob = Vector{Tv}(undef, right+1)
     cprob = Vector{Tv}(undef, right+1)
-    result = Vector{Any}(undef, length(dt))
-    cresult = Vector{Any}(undef, length(dt))
-
-    xdash = x'
-    y0 = copy(xdash)
-    y1 = similar(xdash)
-    cy = zero(xdash)
-    tmpv = similar(xdash)
-    for k = eachindex(dt)
-        right = rightbound(qv*dt[k], eps) + 1
-        weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
-
-        @. y1 = zero(Tv)
-        @origin (prob=>0, cprob=>0) begin
-            axpy!(prob[0]/weight, y0, y1)
-            axpy!(cprob[0]/(qv*weight), y0, cy)
-            for i = 1:right
-                matmul!(:T, 1.0, P, y0, false, tmpv)
-                @. y0 = tmpv
-                axpy!(prob[i]/weight, y0, y1)
-                axpy!(cprob[i]/(qv*weight), y0, cy)
-            end
-        end
-        result[k] = y1' * r
-        cresult[k] = cy' * r
-        @. y0 = y1
-    end
-    result, cresult, y1, cy
-end
-
-# function _tran(Q::AbstractMatrix{Tv}, x::ArrayT1, r::ArrayT2, ts::AbstractVector{Tv},
-#     ::Type{Val{:N}}, ufact::Tv, eps::Tv, rmax) where {Tv,ArrayT1<:AbstractArray{Tv},ArrayT2<:AbstractArray{Tv}}
-#     m, n = size(Q)
-#     @assert m == n
-#     dt, maxt = itime(ts)
-#     P, qv = unif(Q, ufact)
-#     right = rightbound(qv*maxt, eps) + 1
-#     @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
-#     prob = Vector{Tv}(undef, right+1)
-#     cprob = Vector{Tv}(undef, right+1)
-#     result = Vector{Any}(undef, length(dt))
-#     cresult = Vector{Any}(undef, length(dt))
-#     y0 = copy(r)
-#     y1 = similar(r)
-#     cy = zero(r)
-#     tmp = similar(r)
-#     @inbounds for k = eachindex(dt)
-#         right = rightbound(qv*dt[k], eps) + 1
-#         weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
-#         y1 .= Tv(0)
-#         tmp .= Tv(0)
-#         cunifstep!(:N, P, prob, cprob, (0, right), weight, qv*weight, y0, y1, tmp)
-#         cy .+= tmp
-#         result[k] = x * y1
-#         cresult[k] = x * cy
-#         y0 .= y1
-#     end
-#     return result, cresult, y1, cy
-# end
-
-@inbounds function _tran(Q::AbstractMatrix{Tv}, x::ArrayT1, r::ArrayT2, ts::AbstractVector{Tv},
-    ::Type{Val{:N}}, ufact::Tv, eps::Tv, rmax) where {Tv,ArrayT1<:AbstractArray{Tv},ArrayT2<:AbstractArray{Tv}}
-    m, n = size(Q)
-    @assert m == n
-    dt, maxt = itime(ts)
-    P, qv = unif(Q, ufact)
-    right = rightbound(qv*maxt, eps) + 1
-    @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
-    prob = Vector{Tv}(undef, right+1)
-    cprob = Vector{Tv}(undef, right+1)
-    result = Vector{Any}(undef, length(dt))
-    cresult = Vector{Any}(undef, length(dt))
+    result = Vector{Vector{Tv}}(undef, length(dt))
+    cresult = Vector{Vector{Tv}}(undef, length(dt))
 
     y0 = copy(r)
     y1 = similar(r)
@@ -433,12 +233,105 @@ end
             axpy!(prob[0]/weight, y0, y1)
             axpy!(cprob[0]/(qv*weight), y0, cy)
             for i = 1:right
-                matmul!(:N, 1.0, P, y0, false, tmpv)
+                matmul!(:N, one(Tv), P, y0, false, tmpv)
                 @. y0 = tmpv
                 axpy!(prob[i]/weight, y0, y1)
                 axpy!(cprob[i]/(qv*weight), y0, cy)
             end
         end
+        result[k] = y1' * x
+        cresult[k] = cy' * x
+        @. y0 = y1
+    end
+    result, cresult, y1, cy
+end
+
+### mat * mat
+
+# x holds initial vectors as rows (a-by-n, matching the "row vector" wording of
+# the docstring) and r holds reward vectors as columns (n-by-b), so each time
+# point yields an a-by-b reward matrix.
+
+@inbounds function _tran(Q::AbstractMatrix{Tv}, x::ArrayT1, r::ArrayT2, ts::AbstractVector{Tv},
+    ::Type{Val{:T}}, ufact::Tv, eps::Tv, rmax) where {Tv,ArrayT1<:AbstractArray{Tv},ArrayT2<:AbstractArray{Tv}}
+    m, n = size(Q)
+    @assert m == n
+    dt, maxt = itime(ts)
+    P, qv = unif(Q, ufact)
+    right = rightbound(qv*maxt, eps) + 1
+    @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
+    prob = Vector{Tv}(undef, right+1)
+    cprob = Vector{Tv}(undef, right+1)
+    # x's rows are the initial vectors, so propagate its transpose: y0 is n-by-a
+    # and matmul!(:T, ...) computes P' * y0.
+    xdash = collect(x')
+    y0 = copy(xdash)
+    y1 = similar(xdash)
+    cy = zero(xdash)
+    tmpv = similar(xdash)
+
+    # r may be a matrix (one reward per column) or a single reward vector, so
+    # the per-time result is a matrix or a vector accordingly.
+    RT = Base.promote_op(*, typeof(y1'), ArrayT2)
+    result = Vector{RT}(undef, length(dt))
+    cresult = Vector{RT}(undef, length(dt))
+    for k = eachindex(dt)
+        right = rightbound(qv*dt[k], eps) + 1
+        weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
+
+        @. y1 = zero(Tv)
+        @origin (prob=>0, cprob=>0) begin
+            axpy!(prob[0]/weight, y0, y1)
+            axpy!(cprob[0]/(qv*weight), y0, cy)
+            for i = 1:right
+                matmul!(:T, one(Tv), P, y0, false, tmpv)
+                @. y0 = tmpv
+                axpy!(prob[i]/weight, y0, y1)
+                axpy!(cprob[i]/(qv*weight), y0, cy)
+            end
+        end
+        result[k] = y1' * r
+        cresult[k] = cy' * r
+        @. y0 = y1
+    end
+    result, cresult, y1, cy
+end
+
+
+@inbounds function _tran(Q::AbstractMatrix{Tv}, x::ArrayT1, r::ArrayT2, ts::AbstractVector{Tv},
+    ::Type{Val{:N}}, ufact::Tv, eps::Tv, rmax) where {Tv,ArrayT1<:AbstractArray{Tv},ArrayT2<:AbstractArray{Tv}}
+    m, n = size(Q)
+    @assert m == n
+    dt, maxt = itime(ts)
+    P, qv = unif(Q, ufact)
+    right = rightbound(qv*maxt, eps) + 1
+    @assert right <= rmax "Time interval is too large. t or rmax should be changed: right = $right (rmax: $rmax)."
+    prob = Vector{Tv}(undef, right+1)
+    cprob = Vector{Tv}(undef, right+1)
+    RT = Base.promote_op(*, ArrayT1, ArrayT2)
+    result = Vector{RT}(undef, length(dt))
+    cresult = Vector{RT}(undef, length(dt))
+
+    y0 = copy(r)
+    y1 = similar(r)
+    cy = zero(r)
+    tmpv = similar(r)
+    for k = eachindex(dt)
+        right = rightbound(qv*dt[k], eps) + 1
+        weight = cpoipmf!(qv*dt[k], prob, cprob; left=0, right=right)
+
+        @. y1 = zero(Tv)
+        @origin (prob=>0, cprob=>0) begin
+            axpy!(prob[0]/weight, y0, y1)
+            axpy!(cprob[0]/(qv*weight), y0, cy)
+            for i = 1:right
+                matmul!(:N, one(Tv), P, y0, false, tmpv)
+                @. y0 = tmpv
+                axpy!(prob[i]/weight, y0, y1)
+                axpy!(cprob[i]/(qv*weight), y0, cy)
+            end
+        end
+        # x is a-by-n (rows are initial vectors), y1 is n-by-b.
         result[k] = x * y1
         cresult[k] = x * cy
         @. y0 = y1

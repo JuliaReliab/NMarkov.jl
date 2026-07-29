@@ -1,6 +1,35 @@
 # Poisson
 
 """
+    _checkpoirange(name, lambda, prob, left, right)
+
+Validate the preconditions of `poipmf!`/`cpoipmf!` and return the mode of the
+distribution.
+
+The p.m.f. is built by seeding the recurrence at `prob[mode]` and walking it
+outwards. Under `@origin (prob => left)` that write lands at the physical index
+`mode - left + 1`, so a `mode` outside `[left, right]` writes past either end of
+the buffer -- and the bodies run under `@inbounds`, which turns that into a
+segfault or, worse, a silent heap corruption that still returns plausible
+numbers. Check once here, then the loops can stay unchecked.
+"""
+function _checkpoirange(name::String, lambda::Tv, prob::Vector{Tv}, left::Ti, right::Ti) where {Tv,Ti}
+    lambda >= 0 || throw(ArgumentError(
+        "$name: lambda must be non-negative, got $lambda"))
+    left <= right || throw(ArgumentError(
+        "$name: the domain must satisfy left <= right, got ($left, $right)"))
+    length(prob) >= right - left + 1 || throw(ArgumentError(
+        "$name: the output vector holds $(length(prob)) elements, but the " *
+        "domain [$left, $right] needs $(right - left + 1)"))
+    mode = floor(Ti, lambda)
+    left <= mode <= right || throw(ArgumentError(
+        "$name: the domain [$left, $right] must contain the mode $mode of the " *
+        "Poisson distribution with mean $lambda; size the domain with " *
+        "`rightbound(lambda)` and keep left <= $mode"))
+    mode
+end
+
+"""
     poipmf!(lambda, prob; left = 0, right = length(prob)-1+left)
 
 Compute the probability mass function (p.m.f.) of Poisson distribution in-place.
@@ -31,9 +60,9 @@ weight = poipmf!(lambda, prob, left=0, right=rightbound(lambda))
 
 @origin (prob => left) function poipmf!(lambda::Tv, prob::Vector{Tv};
     left::Ti = 0, right::Ti = length(prob)-1+left) where {Tv, Ti}
+    mode::Ti = _checkpoirange("poipmf!", lambda, prob, left, right)
     @inbounds begin
         log2piOver2::Tv = log(2*pi) / 2
-        mode::Ti = floor(Ti, lambda)
         if mode >= 1
             prob[mode] = exp(-lambda + mode * log(lambda) 
                 - log2piOver2 - (mode + 1/2) * log(mode) + mode)
@@ -130,6 +159,9 @@ weight = cpoipmf!(lambda, prob, cprob, left=0, right=right)
 ```
 """
 @origin (prob => left, cprob => left) function cpoipmf!(lambda::Tv, prob::Vector{Tv}, cprob::Vector{Tv}; left::Ti = 0, right::Ti = length(prob)-1+left) where {Tv, Ti}
+    # poipmf! validates lambda and prob; cprob is written here, so its length is
+    # this function's own precondition.
+    _checkpoirange("cpoipmf!", lambda, cprob, left, right)
     weight::Tv = poipmf!(lambda, prob, left=left, right=right)
     @inbounds begin
         cprob[right] = 0
@@ -210,21 +242,26 @@ function rightbound(lambda::Tv, q::Tv = Tv(1.0e-8))::Int where {Tv}
 end
 
 function rightbound(::Type{Ti}, lambda::Tv, q::Tv = Tv(1.0e-8))::Ti where {Tv, Ti}
-    z = cquantile(Normal(), q)
-    if lambda < 3.0
+    lambda >= 0 || throw(ArgumentError("lambda must be non-negative, got $lambda"))
+    if lambda < 3
         ll = exp(-lambda)
         total = ll
         right::Ti = 0
         while true
             right += 1
             ll *= lambda / right
+            prev = total
             total += ll
-            if total + q >= 1.0
-                break
-            end
+            total + q >= 1 && break
+            # In a narrow element type the running sum stops moving before it
+            # reaches 1 - q, and the tail test above would never fire. Once an
+            # added term changes nothing, every remaining term is below the
+            # resolution of Tv, so the domain is as wide as it can usefully be.
+            total == prev && break
         end
         right
     else
-        right = floor(Ti, (z + sqrt(4.0 * lambda - 1.0))^2 / 4.0 + 1.0)
+        z = cquantile(Normal(), q)
+        right = floor(Ti, (z + sqrt(4 * lambda - 1))^2 / 4 + 1)
     end
 end

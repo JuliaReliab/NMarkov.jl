@@ -66,8 +66,11 @@ Iteratively solves for the QSD vector q and exit rate γ such that:
 
 ## Arguments
 
-- `Q::Union{SparseMatrixCSC, SparseCSC}`: CTMC generator matrix
-- `xi::Vector`: Exit vector (rates to absorption); must be non-negative
+- `Q::Union{SparseMatrixCSC, SparseCSC}`: generator restricted to the **transient**
+  states (the block usually written `T`), not the full generator. Every diagonal
+  entry must be non-zero; the absorbing state's zero row must not be included.
+- `xi::Vector`: Exit vector (rates to absorption); must be non-negative, and
+  satisfies `Q * ones + xi == 0`
 - `x0::Vector=stguess(Q)`: Initial guess for QSD (default: uniform/diagonal-based)
 - `maxiter::Int=5000`: Maximum number of iterations
 - `steps::Int=20`: Number of GS steps between convergence checks
@@ -132,17 +135,16 @@ For CTMCs with well-separated spectral gap:
 using NMarkov
 using SparseArrays
 
-# 5-state CTMC: 4 transient + 1 absorbing
-n = 5
-Q_transient = sparse([-1.5  1.0  0.3  0.2;
-                       0.5 -1.2  0.4  0.3;
-                       0.3  0.4 -1.0  0.3;
-                       0.2  0.3  0.3 -0.8])
-Q = [Q_transient  ones(4,1); zeros(1,5)]
+# 4-state CTMC: 3 transient states plus 1 absorbing state.
+# Pass only the transient block T and the exit rates xi. Handing over the full
+# 4-by-4 generator would include the absorbing state's zero row, whose zero
+# diagonal Gauss-Seidel cannot divide by.
+T = [-4.0  1.0  0.0;
+      0.0 -1.0  0.1;
+      3.0  0.5 -3.5]
+xi = -vec(sum(T, dims=2))        # [3.0, 0.9, 0.0]; satisfies T*ones + xi == 0
 
-xi = [1.0; 1.0; 1.0; 1.0; 0.0]
-
-qst, gamma, conv, iter, rerr = qstgs(Q, xi; rtol=1.0e-6)
+qst, gamma, conv, iter, rerr = qstgs(sparse(T), xi; rtol=1.0e-6)
 println("QSD: \$qst")
 println("Absorption rate: \$gamma")
 println("Converged: \$conv in \$iter iterations")
@@ -158,6 +160,15 @@ function qstgs(Q::SparseCSC{Tv,Ti}, xi::Vector{Tv}; x0::Vector{Tv}=stguess(Q,Tv)
         maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
     m, n = size(Q)
     @assert m == n
+    # For the transient block T of an absorbing chain,
+    # diag(T)[j] = -(sum_{k != j} T[j,k] + xi[j]), so a zero diagonal entry means
+    # state j has neither an onward transition nor an exit rate: it is absorbing,
+    # hence not a transient state at all. The usual cause is passing the full
+    # generator, whose absorbing state contributes a zero row.
+    checkgsdiag("qstgs", Q,
+        "Quasi-stationary analysis takes the generator restricted to the transient " *
+        "states together with their exit rates, not the full generator including " *
+        "the absorbing state's zero row.")
     b = zeros(Tv, n)
     x = copy(x0)
     iter = 0
@@ -172,6 +183,10 @@ function qstgs(Q::SparseCSC{Tv,Ti}, xi::Vector{Tv}; x0::Vector{Tv}=stguess(Q,Tv)
             gsstep!(x, Q, b, sigma=-gam)
             x ./= sum(x)
         end
+        # gam above belongs to the iterate that entered the last sweep, not to
+        # the x being returned; recompute it so the pair is consistent (this is
+        # what qstpower does).
+        gam = @dot(x, xi)
         # rerror = maximum(abs.((x - prevx) ./ x))
         rerror = maximum(abs.(x - prevx)) / maximum(x)
         iter += steps
@@ -180,6 +195,9 @@ function qstgs(Q::SparseCSC{Tv,Ti}, xi::Vector{Tv}; x0::Vector{Tv}=stguess(Q,Tv)
             break
         end
         if iter >= maxiter
+            @warn "qstgs did not converge within $maxiter iterations "  *
+                  "(relative error $rerror, tolerance $rtol); the returned " *
+                  "value is the last iterate"
             break
         end
     end
@@ -306,6 +324,9 @@ function qstpower(P::AbstractMatrix{Tv}, xi::Vector{Tv};
             break
         end
         if iter >= maxiter
+            @warn "qstpower did not converge within $maxiter iterations "  *
+                  "(relative error $rerror, tolerance $rtol); the returned " *
+                  "value is the last iterate"
             break
         end
     end

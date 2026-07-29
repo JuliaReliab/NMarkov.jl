@@ -13,7 +13,7 @@ export SparseELL1, SparseELL2
 export fill!, spger!
 
 # Diagonal and block operations
-export spdiag
+export spdiag, adddiag, hasfulldiag
 export BlockCOO, block
 
 include("sparse.jl")
