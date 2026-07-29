@@ -9,15 +9,17 @@ Requires Julia 1.10 or later.
 
 ## Installation
 
-Neither this package nor `DEQuadrature` is registered in the official Julia
-Registry, so both are installed from their URLs. `ZeroOrigin`, the other
-dependency, is registered and resolves on its own.
+NMarkov is registered in the JuliaReliab registry rather than in General. Add
+that registry once, then install as usual:
 
 ```julia
 using Pkg
-Pkg.add(PackageSpec(url="https://github.com/JuliaReliab/DEQuadrature.jl.git"))
-Pkg.add(PackageSpec(url="https://github.com/JuliaReliab/NMarkov.jl.git"))
+Pkg.Registry.add(RegistrySpec(url="https://github.com/JuliaReliab/Registry.git"))
+Pkg.add("NMarkov")
 ```
+
+The registry also provides `DEQuadrature`, so nothing else needs installing by
+hand. The other dependency, `ZeroOrigin`, is in General.
 
 ## Quick Start
 

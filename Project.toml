@@ -1,6 +1,6 @@
 name = "NMarkov"
 uuid = "c5cca998-98d3-11ea-1288-bb4300628a81"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Hiroyuki Okamura"]
 
 [deps]
@@ -10,10 +10,10 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 ZeroOrigin = "421443cc-9b00-11ea-1646-3bac74f84b0c"
 
-[sources]
-DEQuadrature = {rev = "master", url = "https://github.com/JuliaReliab/DEQuadrature.jl.git"}
-
 [compat]
+DEQuadrature = "0.3"
+Distributions = "0.25"
+ZeroOrigin = "0.2"
 julia = "1.10"
 
 [extras]

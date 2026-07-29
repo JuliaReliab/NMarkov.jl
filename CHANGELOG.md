@@ -1,3 +1,31 @@
+# NMarkov 0.5.1
+
+Registered in the JuliaReliab registry, so installation no longer needs URLs:
+
+```julia
+using Pkg
+Pkg.Registry.add(RegistrySpec(url="https://github.com/JuliaReliab/Registry.git"))
+Pkg.add("NMarkov")
+```
+
+- Removed the `[sources]` entry for `DEQuadrature` from `Project.toml`. It is in
+  the same registry, and a registered package's `[sources]` is not honoured when
+  the package is resolved as a dependency, so the entry only added confusion.
+  This also removes the `VERSION < v"1.11"` branch from CI: both jobs now take
+  the same path.
+- Added `[compat]` bounds for `DEQuadrature`, `Distributions` and `ZeroOrigin`.
+  Previously only `julia` was bounded, so the registry recorded no upper bounds
+  for the dependencies at all.
+- CI adds the JuliaReliab registry instead of installing `DEQuadrature` from its
+  URL.
+- `examples/02_transient_analysis.jl` now passes `rmax=1000` to `mexpmix` and
+  `mexpcmix`. Dropping `[sources]` moved `DEQuadrature` from a stale 0.1.4 git
+  checkout to the registered 0.3.0, whose double-exponential quadrature reaches
+  further into the tail: with `bounds = (0, Inf)` the longest interval needs
+  about 830 Poisson terms, over the default `rmax` of 500. Verified against the
+  analytic value `inv(I - Q') * x0` (agreement to 2.3e-8). Documented in the
+  `mexp.jl` module docstring.
+
 # NMarkov 0.5.0
 
 ## Breaking
