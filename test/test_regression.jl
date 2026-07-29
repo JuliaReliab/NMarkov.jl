@@ -152,8 +152,10 @@ end
 
 ## --- F: no type piracy on Base.iszero.
 @testset "no type piracy on iszero" begin
+    # `m.module` rather than `parentmodule(m)`: the latter has no Method method
+    # before Julia 1.10, and this package supports 1.6.
     for m in methods(iszero, (Float64,))
-        @test parentmodule(m) !== NMarkov.SparseMatrix
+        @test m.module !== NMarkov.SparseMatrix
     end
 end
 
