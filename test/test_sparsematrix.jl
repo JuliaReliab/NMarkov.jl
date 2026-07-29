@@ -287,22 +287,42 @@ end
 end
 
 @testset "linearlize" begin
+    # The stored entries are reached through nnz/val. Linear indexing follows
+    # the AbstractMatrix contract instead, i.e. it walks all m*n positions in
+    # column-major order.
     for i = 1:100
         m = rand(1:20)
         n = rand(1:20)
         p = rand()
         A = SparseCSC(sprandn(m,n,p))
         B = copy(A)
-        for i = 1:length(B)
-            B[i] *= 100.0
+        for z = 1:SparseArrays.nnz(B)
+            B.val[z] *= 100.0
         end
         @test A.val * 100.0 ≈ B.val
+
         A = SparseCSC(sprandn(m,n,p))
         B = copy(A)
-        for i = eachindex(B)
-            B[i] *= 100.0
+        for z = eachindex(B.val)
+            B.val[z] *= 100.0
         end
         @test A.val * 100.0 ≈ B.val
+    end
+end
+
+@testset "AbstractMatrix contract" begin
+    for i = 1:20
+        m = rand(1:20)
+        n = rand(1:20)
+        A = Matrix(sprandn(m, n, rand()))
+        for S in (SparseCSR(A), SparseCSC(A), SparseCOO(A))
+            @test size(S) == (m, n)
+            @test length(S) == m * n
+            @test length(eachindex(S)) == m * n
+            @test all(S[i, j] == A[i, j] for i = 1:m, j = 1:n)
+            @test [S[k] for k = 1:m*n] == vec(A)
+            @test Matrix(S) == A
+        end
     end
 end
 

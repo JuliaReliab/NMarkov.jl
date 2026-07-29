@@ -42,7 +42,7 @@ t = trans(:T)  # Returns 'T'
 function trans(transpose::Symbol)
     transpose == :N && return 'N'
     transpose == :T && return 'T'
-    nothing
+    throw(ArgumentError("transpose must be :N or :T, got :$transpose"))
 end
 
 """
@@ -69,6 +69,46 @@ end
 
 function matmul!(transpose::Symbol, alpha::Union{Tv,Bool}, A::AbstractMatrix{Tv}, B::AbstractVector{Tv}, beta::Union{Tv,Bool}, C::AbstractVector{Tv}) where Tv
     gemv!(trans(transpose), alpha, A, B, beta, C)
+end
+
+"""
+    asarray(Tv, x)
+    asvector(Tv, ts)
+
+Convert an argument to element type `Tv`, returning it untouched when it already
+has that element type.
+
+`asarray` keeps the shape of `x`, so a matrix argument stays a matrix; the
+matrix methods of `tran`/`mexp` are only reachable that way.
+"""
+asarray(::Type{Tv}, x::AbstractArray{Tv}) where {Tv} = x
+asarray(::Type{Tv}, x::AbstractArray) where {Tv} = convert(Array{Tv}, x)
+
+asvector(::Type{Tv}, ts::AbstractVector{Tv}) where {Tv} = ts
+asvector(::Type{Tv}, ts::AbstractVector) where {Tv} = convert(Vector{Tv}, ts)
+
+"""
+    checktime(t)
+    checktimes(ts)
+
+Validate the time argument of a transient computation.
+
+A single time must be non-negative; a time series must in addition be sorted in
+ascending order. Uniformization walks the series interval by interval, so a
+descending step would ask for a Poisson p.m.f. with a negative mean, which
+writes outside the p.m.f. buffer and yields `NaN`.
+"""
+function checktime(t::Real)
+    t >= 0 || throw(ArgumentError("the time must be non-negative, got $t"))
+    t
+end
+
+function checktimes(ts::AbstractVector)
+    isempty(ts) && return ts
+    issorted(ts) || throw(ArgumentError(
+        "the time points must be sorted in ascending order, got $ts"))
+    checktime(first(ts))
+    ts
 end
 
 """
@@ -126,26 +166,7 @@ function eye(n, ::Type{Tv} = Float64)::Matrix{Tv} where {Tv}
 end
 
 function eye(A::AbstractMatrix, ::Type{Tv} = Float64)::Matrix{Tv} where {Tv}
-    eye(size(A)[1])
-end
-
-"""
-    Uniformed matrix for CTMC
-
-Internal macro for uniformization computation.
-"""
-macro unif(Q, ufact)
-    expr = quote
-        qv = maximum(abs.(spdiag($Q))) * $ufact
-        if iszero(qv)
-            qv = 1.0e-12
-        end
-        P = $Q / qv
-        d = spdiag(P)
-        d .+= 1
-        (P, qv)
-    end
-    esc(expr)
+    eye(size(A, 1), Tv)
 end
 
 """
@@ -169,23 +190,47 @@ Computes: `P = I + Q / qv` where `qv = max(abs(diag(Q))) * ufact`
 - SparseCSC
 - SparseCOO
 - Matrix (dense)
+
+### Notes
+A sparse `Q` whose diagonal is not fully stored (a CTMC with an absorbing state
+has a zero diagonal entry, which dense-to-sparse conversion drops) is passed
+through `adddiag` first, so `P` is stochastic in every case.
+
+If `Q` is the zero matrix there is no event to uniformize against; `qv` is then
+1 and `P` is the identity, which is the correct kernel for a chain that never
+moves.
 """
-function unif(Q::SparseMatrixCSC{Tv,Ti}, ufact::Tv = 1.01) where {Tv, Ti}
-    @unif(Q, ufact)
+const UnifMatrix{Tv} = Union{Matrix{Tv},
+    SparseMatrixCSC{Tv},
+    SparseCSR{Tv},
+    SparseCSC{Tv},
+    SparseCOO{Tv}}
+
+function unif(Q::UnifMatrix{Tv}, ufact::Real = 1.01) where {Tv}
+    # One spdiag serves both purposes: the largest |diagonal| and the test for a
+    # complete pattern. Reading an absent diagonal entry already yields zero, so
+    # adddiag cannot change the maximum.
+    dq = spdiag(Q)
+    qv = maximum(abs.(dq)) * convert(Tv, ufact)
+    if iszero(qv)
+        qv = one(Tv)
+    end
+    A = hasfulldiag(dq) ? Q : adddiag(Q)
+    P = _scaledcopy(A, qv)
+    d = spdiag(P)
+    d .+= one(Tv)
+    (P, qv)
 end
 
-function unif(Q::SparseCSR{Tv,Ti}, ufact::Tv = 1.01) where {Tv, Ti}
-    @unif(Q, ufact)
-end
+# `A / qv` is right for a dense matrix and for the SparseMatrix types, whose `/`
+# is already a structure-preserving `scal!` on a copy. SparseMatrixCSC is the
+# exception: it falls back to the generic sparse `/`, which prunes the structural
+# zeros on the diagonal, so scale a copy in place instead.
+_scaledcopy(A::Matrix{Tv}, qv::Tv) where {Tv} = A / qv
+_scaledcopy(A::AbstractSparseM{Tv,Ti}, qv::Tv) where {Tv,Ti} = A / qv
 
-function unif(Q::SparseCSC{Tv,Ti}, ufact::Tv = 1.01) where {Tv, Ti}
-    @unif(Q, ufact)
-end
-
-function unif(Q::SparseCOO{Tv,Ti}, ufact::Tv = 1.01) where {Tv, Ti}
-    @unif(Q, ufact)
-end
-
-function unif(Q::Matrix{Tv}, ufact::Tv = 1.01) where {Tv}
-    @unif(Q, ufact)
+function _scaledcopy(A::SparseMatrixCSC{Tv,Ti}, qv::Tv) where {Tv,Ti}
+    P = copy(A)
+    scal!(one(Tv) / qv, P)
+    P
 end

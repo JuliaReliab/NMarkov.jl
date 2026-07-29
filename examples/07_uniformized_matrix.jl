@@ -31,9 +31,10 @@ println(P)
 println()
 
 # Compute stationary vector of P using power method
-piv = stpower(P)
+piv, conv, iter, rerror = stpower(P)
 println("Stationary vector using power method:")
 println(piv)
+println("(converged: $conv, iterations: $iter, relative error: $rerror)")
 println()
 
 # Sensitivity analysis using uniformized matrix

@@ -60,10 +60,12 @@ end
 @testset "zeromat" begin
     Q = [0.0][:,:]
     x0 = eye(1)
+    # mexp sums a truncated Poisson series, so the result carries rounding even
+    # when the exact answer is 1; compare approximately, not bitwise.
     y = mexp(Q, x0, 1.0)
-    @test y == [1.0][:,:]
+    @test isapprox(y, [1.0][:,:])
     y, cy = mexpc(Q, x0, 10.0)
-    @test y == [1.0][:,:]
+    @test isapprox(y, [1.0][:,:])
     @test isapprox(cy, [10.0][:,:])
 end
 

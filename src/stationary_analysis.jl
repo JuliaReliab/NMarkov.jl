@@ -54,6 +54,13 @@ function gth!(Q::Matrix{Tv})::Vector{Tv} where {Tv}
             for u = 1:l-1
                 tmp += Q[l,u]
             end
+            # The total rate out of state l into the remaining block is the
+            # pivot; a zero pivot means state l cannot leave, i.e. the chain has
+            # an absorbing state and no stationary distribution exists. Without
+            # this check the elimination divides by zero and returns NaN.
+            iszero(tmp) && throw(ArgumentError(
+                "state $l cannot reach the remaining states: the chain has an " *
+                "absorbing state, so it has no unique stationary distribution"))
             for j = 1:l-1
                 for i = 1:l-1
                     if i != j
@@ -70,9 +77,9 @@ function gth!(Q::Matrix{Tv})::Vector{Tv} where {Tv}
             Q[l,l] = -1
         end
         x = Vector{Tv}(undef, n)
-        x[1] = 1.0
+        x[1] = one(Tv)
         for l = 2:n
-            x[l] = 0.0
+            x[l] = zero(Tv)
             for i = 1:l-1
                 x[l] += x[i] * Q[i,l]
             end
@@ -148,6 +155,9 @@ function gth!(Q::Matrix{Tv}, index::Vector{Ti})::Vector{Tv} where {Tv,Ti}
         for u = 1:l-1
             tmp += Q[index[l],index[u]]
         end
+        iszero(tmp) && throw(ArgumentError(
+            "state $(index[l]) cannot reach the remaining states: the chain has " *
+            "an absorbing state, so it has no unique stationary distribution"))
         for j = 1:l-1
             for i = 1:l-1
                 if i != j
@@ -164,9 +174,9 @@ function gth!(Q::Matrix{Tv}, index::Vector{Ti})::Vector{Tv} where {Tv,Ti}
         Q[index[l],index[l]] = -1
     end
     x = Vector{Tv}(undef, n)
-    x[index[1]] = 1.0
+    x[index[1]] = one(Tv)
     for l = 2:n
-        x[index[l]] = 0.0
+        x[index[l]] = zero(Tv)
         for i = 1:l-1
             x[index[l]] += x[index[i]] * Q[index[i],index[l]]
         end
@@ -233,8 +243,18 @@ function stguess(Q::MatT, ::Type{Tv} = Float64)::Vector{Tv} where {Tv,MatT}
     m, n = size(Q)
     @assert m == n
     result = Vector{Tv}(undef, n)
-    for (i,x) in enumerate(spdiag(Q))
-        result[i] = 1/x
+    d = spdiag(Q)
+    for i = 1:n
+        x = d[i]
+        # A zero diagonal entry carries no rate information (a DTMC state with
+        # no self-loop, or an absorbing state). 1/x would be Inf and the
+        # normalisation below would turn the whole guess into NaN, which no
+        # convergence test can ever satisfy, so fall back to the uniform guess.
+        if iszero(x)
+            result .= one(Tv) / n
+            return result
+        end
+        result[i] = one(Tv) / x
     end
     result ./= sum(result)
 end
@@ -279,10 +299,45 @@ function stgs(Q::SparseMatrixCSC{Tv,Ti}; x0::Vector{Tv}=stguess(Q,Tv),
     stgs(SparseCSC(Q), x0=x0, maxiter=maxiter, steps=steps, rtol=rtol)
 end
 
+"""
+    checkgsdiag(name, Q, hint)
+
+Check that every diagonal entry of `Q` is non-zero, which is a precondition of
+the Gauss-Seidel iteration. `hint` is appended to the error message to say what
+the caller expected of `Q`.
+
+`gsstep!` divides by the diagonal, and Gauss-Seidel in general splits
+`Q = D + (L + U)` and inverts `D`, which is singular as soon as one diagonal
+entry vanishes. For a generator `diag(Q)[j] = -sum_{k != j} Q[j,k]` with
+non-negative off-diagonals, so a zero diagonal entry means the whole row is
+zero: state `j` never leaves.
+
+The obstacle is structural, not numerical. The column equation of such a state
+`a`, `sum_{i != a} Q[i,a] pi_i + Q[a,a] pi_a = 0`, does not contain `pi_a` at
+all once `Q[a,a] = 0`; that component is fixed by the normalisation rather than
+by any sweep, so there is no fixed point to iterate towards. Storing an explicit
+zero on the diagonal (`adddiag`) therefore does not help either — zero is still
+zero when you divide by it.
+"""
+function checkgsdiag(name::String, Q::MatT,
+        hint::String = "A chain with an absorbing state has no unique stationary " *
+                       "distribution reachable this way; use a method for " *
+                       "reducible chains.") where {MatT}
+    d = spdiag(Q)
+    @inbounds for i in eachindex(d)
+        iszero(d[i]) && throw(ArgumentError(
+            "$name: diagonal entry ($i,$i) is zero, so state $i never leaves and the " *
+            "Gauss-Seidel iteration is not defined (it divides by the diagonal). " *
+            hint))
+    end
+    nothing
+end
+
 function stgs(Q::SparseCSC{Tv,Ti}; x0::Vector{Tv}=stguess(Q,Tv),
         maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
     m, n = size(Q)
     @assert m == n
+    checkgsdiag("stgs", Q)
     b = zeros(Tv, n)
     x = copy(x0)
     iter = 0
@@ -303,6 +358,9 @@ function stgs(Q::SparseCSC{Tv,Ti}; x0::Vector{Tv}=stguess(Q,Tv),
             break
         end
         if iter >= maxiter
+            @warn "stgs did not converge within $maxiter iterations "  *
+                  "(relative error $rerror, tolerance $rtol); the returned " *
+                  "value is the last iterate"
             break
         end
     end
@@ -366,6 +424,9 @@ function stpower(P::AbstractMatrix{Tv}; x0::Vector{Tv}=stguess(P,Tv),
             break
         end
         if iter >= maxiter
+            @warn "stpower did not converge within $maxiter iterations "  *
+                  "(relative error $rerror, tolerance $rtol); the returned " *
+                  "value is the last iterate"
             break
         end
     end
@@ -442,7 +503,7 @@ function gsstep!(x::Vector{Tv}, Q::SparseCSR{Tv,Ti}, b::Vector{Tv};
     @assert m == n
     @inbounds for i = 1:m
         tmpd::Tv = 0
-        tmpx::Tv = b[j] / alpha
+        tmpx::Tv = b[i] / alpha
         for z = Q.rowptr[i]:Q.rowptr[i+1]-1
             j = Q.colind[z]
             if i == j
