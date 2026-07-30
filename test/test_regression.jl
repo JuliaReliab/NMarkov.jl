@@ -3,6 +3,7 @@
 
 using LinearAlgebra: I, exp
 using SparseArrays: sparse
+using Distributions: Weibull, LogNormal, Gamma, Pareto, pdf
 
 @testset "regression" begin
 
@@ -560,6 +561,95 @@ end
     for A in (sparse(Qfull), SparseCSC(Qfull))
         @test_throws ArgumentError qstgs(A, xifull)
     end
+end
+
+## --- The mixture functions build their time grid from deint's nodes, and the
+##     Poisson truncation point grows with qv * maxt where maxt is the widest
+##     interval of that grid. deint keeps every node whose weight is not exactly
+##     zero, and in the tail those weights underflow to subnormals rather than to
+##     zero, so maxt used to blow up: 4e15 for LogNormal, 6.8e128 for Pareto.
+##     `dropzero` (default eps(Tv)) discards them, at no cost in accuracy.
+@testset "mexpmix tail nodes" begin
+    Q = [
+        -1.0 1.0 0.0;
+        0.0 -0.1 0.1;
+        3.0 0.5 -3.5
+    ]
+    x0 = Float64[1, 0, 0]
+
+    # These all used to need rmax far above the default; exp(-u) needed 828
+    # against a default of 500, purely because of the subnormal tail.
+    for (name, f) in (("exp", u -> exp(-u)),
+                      ("Weibull(2,1)", u -> pdf(Weibull(2.0, 1.0), u)),
+                      ("Gamma(0.3,1)", u -> pdf(Gamma(0.3, 1.0), u)))
+        y = mexpmix(Q, x0, transpose=:T) do u
+            f(u)
+        end
+        @test all(isfinite.(y))
+        yc, byc = mexpcmix(Q, x0, transpose=:T) do u
+            f(u)
+        end
+        @test all(isfinite.(yc)) && all(isfinite.(byc))
+    end
+
+    # Accuracy is untouched: int_0^inf exp(Q'u) x0 e^{-u} du = inv(I - Q') * x0.
+    exact = (Matrix(1.0I, 3, 3) - Q') \ x0
+    y = mexpmix(Q, x0, transpose=:T) do u
+        exp(-u)
+    end
+    @test maximum(abs.(y - exact)) < 1.0e-7
+
+    # ... and dropping the tail nodes does not move the answer: keeping them
+    # (dropzero = 0, which needs rmax = 828) gives the same vector.
+    ykeep = mexpmix(Q, x0, transpose=:T, dropzero=0.0, rmax=1000) do u
+        exp(-u)
+    end
+    @test y ≈ ykeep rtol = 1.0e-10
+
+    # A moderate maxt that simply needs more terms is reported as such, and works
+    # once rmax is raised.
+    for (name, dist, terms) in (("Weibull(0.5,1)", Weibull(0.5, 1.0), 1780),
+                                ("LogNormal(0,1)", LogNormal(0.0, 1.0), 6737))
+        err = nothing
+        try
+            mexpmix(Q, x0, transpose=:T) do u
+                pdf(dist, u)
+            end
+        catch e
+            err = e
+        end
+        @test err isa ArgumentError
+        # the message must expose maxt, so the caller can tell "needs more terms"
+        # from "the tail is hopeless"
+        @test occursin("maxt", sprint(showerror, err))
+        yd = mexpmix(Q, x0, transpose=:T, rmax=10 * terms) do u
+            pdf(dist, u)
+        end
+        @test all(isfinite.(yd))
+        @test sum(yd) ≈ 1.0 rtol = 1.0e-6
+    end
+
+    # Keeping the subnormal tail is what blew maxt up; it must be reported, not
+    # turned into a 100-PiB allocation.
+    @test_throws ArgumentError mexpmix(Q, x0, transpose=:T, dropzero=0.0) do u
+        pdf(LogNormal(0.0, 1.0), u)
+    end
+
+    # A genuinely heavy tail cannot be followed over an unbounded range even with
+    # the default dropzero. It must fail loudly rather than with an InexactError
+    # from flooring an out-of-range Float64.
+    @test_throws ArgumentError mexpmix(Q, x0, transpose=:T) do u
+        pdf(Pareto(1.5, 1.0), u)
+    end
+    # bounding the range makes it computable
+    yp = mexpmix(Q, x0, transpose=:T, bounds=(1.0, 100.0)) do u
+        pdf(Pareto(1.5, 1.0), u)
+    end
+    @test all(isfinite.(yp))
+
+    # rightbound must not overflow into an InexactError either.
+    @test_throws ArgumentError rightbound(1.0e19, 1.0e-8)
+    @test_throws ArgumentError rightbound(Inf, 1.0e-8)
 end
 
 ## --- trans() must reject an unknown symbol rather than returning nothing.

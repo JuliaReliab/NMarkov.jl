@@ -1,3 +1,48 @@
+# NMarkov 0.5.2
+
+`mexpmix`/`mexpcmix` (and `mexp`/`mexpc` with a `Distribution`) could demand an
+impossible amount of work, or fail with an opaque `InexactError`, for perfectly
+ordinary densities.
+
+The mixture functions build their time grid from the nodes `deint` returns, and
+the Poisson truncation point grows with `qv * maxt`, where `maxt` is the widest
+interval of that grid. The double-exponential transform spaces nodes
+multiplicatively, so one node far out in the tail makes `maxt` as large as that
+node. `deint` keeps every node whose weight is not *exactly* zero, and in the tail
+those weights underflow to subnormals rather than to zero — so the grid ran out to
+`4e15` for `LogNormal(0,1)` and `6.8e128` for `Pareto(1.5,1)`.
+
+- **Added a `dropzero` keyword, default `eps(Tv)`**, passed through to `deint`.
+  Their contribution is of order `1e-299`, so nothing is lost: for `exp(-u)` the
+  result still matches `inv(I - Q') * x0`, while the term count drops from 828 to
+  64. Measured with `max|Q_ii| = 3.5`:
+
+  | density | terms before | terms now |
+  |---|---|---|
+  | `exp(-u)` | 828 | **64** |
+  | `Weibull(2,1)` | 47 | 15 |
+  | `Weibull(0.5,1)` | 835,442 | 1,780 |
+  | `LogNormal(0,1)` | 1.45e16 | 6,737 |
+  | `Pareto(1.5,1)` | `InexactError` | 2.43e10 |
+
+  `exp(-u)`, `Weibull`, `Gamma` now work at the default `rmax`. `Weibull(0.5,1)`
+  and `LogNormal(0,1)` need it raised, which is legitimate — their `maxt` really
+  is larger.
+- **`rightbound` raises `ArgumentError` instead of `InexactError`** when the
+  truncation point does not fit in the index type (`lambda` above about 1e19, or
+  `Inf`). Flooring an out-of-range `Float64` told the caller nothing.
+- **The `rmax` error from the mixture functions now reports `maxt` and `qv`**, so
+  a case that merely needs more terms can be told apart from one whose tail
+  uniformization cannot follow at all. The old message said only "rmax should be
+  changed", which is actively misleading when the required `rmax` is 1e16.
+- Reverted the `rmax=1000` added to `examples/02_transient_analysis.jl` in 0.5.1:
+  that was treating the symptom. The default now suffices.
+- The guidance in the `mexp.jl` module docstring was wrong in the general case
+  ("raise `rmax` rather than narrowing `bounds`") and has been rewritten.
+
+Existing results are unchanged: the hardcoded reference values in
+`test/test_mix.jl` still agree to 1e-8.
+
 # NMarkov 0.5.1
 
 Registered in the JuliaReliab registry, so installation no longer needs URLs:
