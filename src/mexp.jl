@@ -29,13 +29,28 @@ Markov chain (DTMC), enabling numerically stable computation via Poisson series 
 - **Reward computation**: Both instantaneous (mexp*) and cumulative (mexpc*) values
 - **Distribution mixing**: Integration with probability distributions via DEQuadrature
 
-## Note on `rmax` for the mixture functions
+## Note on `dropzero` for the mixture functions
 
-`mexpmix`/`mexpcmix` default to `bounds = (0, Inf)`, and the double-exponential
-quadrature places its outermost node far into the tail. The longest interval it
-asks for can need well over the default `rmax = 500` Poisson terms — a generator
-with `max|Q_ii|` around 3.5 already needs about 830. Raise `rmax` rather than
-narrowing `bounds`, or the integral is truncated instead of merely coarse.
+`mexpmix`/`mexpcmix` build their time grid from the nodes `deint` returns, and the
+Poisson truncation point grows with `qv * maxt`, where `maxt` is the widest
+interval of that grid. The double-exponential transform spaces nodes
+multiplicatively, so a node far out in the tail makes `maxt` as large as the node
+itself.
+
+`deint` keeps every node whose weight is not exactly zero, and in the tail those
+weights underflow to subnormals rather than to zero — for `LogNormal(0,1)` the
+grid then reaches `4e15` and the truncation point `1.5e16`, which is not a
+computation anyone can run. `dropzero` (default `eps(Tv)`) discards those nodes.
+Their contribution is of order `1e-299`, so the integral is unchanged: for
+`exp(-u)` the value matches `inv(I - Q') * x0` either way, while the term count
+drops from 828 to 64.
+
+So when the term count exceeds `rmax`, check `maxt` in the error message before
+reaching for a larger `rmax`. A moderate `maxt` just needs more terms; an enormous
+one means the integrand has a tail uniformization cannot follow over an unbounded
+range, and the fix is finite `bounds` or a larger `dropzero`. A genuinely
+heavy-tailed density such as `Pareto(1.5, 1)` still needs bounded integration
+even with the default `dropzero`.
 
 ## Example
 
@@ -123,6 +138,29 @@ x = [1.0; 0.0]
 prob_t2 = mexp(Q, x, 2.0)  # Probability after 2 time units
 ```
 """
+
+"""
+    _checkmixrmax(name, right, rmax, maxt, qv)
+
+Check the Poisson truncation point of a mixture computation against `rmax`, and
+report enough to tell the two causes apart.
+
+`right` grows with `qv * maxt`, where `maxt` is the widest interval of the
+quadrature grid. A moderate `maxt` that merely needs more terms is a different
+situation from a `maxt` of 1e15, which means the grid reaches into a tail that
+uniformization cannot follow at any affordable cost — raising `rmax` there asks
+for a buffer of that many elements and a loop of that many iterations.
+"""
+function _checkmixrmax(name::String, right, rmax, maxt, qv)
+    right <= rmax || throw(ArgumentError(
+        "$name: the quadrature needs $right Poisson terms, over rmax = $rmax. " *
+        "The widest interval of the grid is maxt = $maxt at uniformization rate " *
+        "qv = $qv, and the term count grows with their product. If maxt is " *
+        "moderate, raise rmax. If it is enormous, the integrand has a tail that " *
+        "uniformization cannot follow over an unbounded range: pass finite " *
+        "`bounds`, or raise `dropzero` to discard the negligible tail nodes."))
+    nothing
+end
 
 # Single public method: every argument is converted to the element type of Q and
 # the work is then done by _mexp. Keeping the conversion and the kernel in
@@ -602,14 +640,15 @@ mixed2 = mexpmix(t -> pdf(dist, t), Q, x; bounds=(0, 20))
 
 @inbounds function mexpmix(f::Any, Q::AbstractMatrix{Tv}, x::ArrayT;
     bounds=(Tv(0.0), Tv(Inf)), transpose::Symbol=:N,
-    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
+    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), dropzero::Tv=Base.eps(Tv),
+    rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
     m, n = size(Q)
     @assert m == n
-    de = deint(f, bounds[1], bounds[2])
+    de = deint(f, bounds[1], bounds[2]; dropzero=dropzero)
     dt, maxt = itime(de.x)
     P, qv = unif(Q, ufact)
     right = rightbound(qv*maxt, eps)
-    @assert right <= rmax "Time interval is too large. rmax should be changed: right = $right (rmax: $rmax)."
+    _checkmixrmax("mexpmix", right, rmax, maxt, qv)
     prob = Vector{Tv}(undef, right+1)
 
     y0 = copy(x)
@@ -638,8 +677,10 @@ end
 
 function mexp(Q::AbstractMatrix{Tv}, x::ArrayT, dist::UnivariateDistribution;
     bounds=(minimum(dist), maximum(dist)), transpose::Symbol=:N,
-    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
-    mexpmix(Q, x, bounds=bounds, transpose=transpose, ufact=ufact, eps=eps, rmax=rmax) do x
+    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), dropzero::Tv=Base.eps(Tv),
+    rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
+    mexpmix(Q, x, bounds=bounds, transpose=transpose, ufact=ufact, eps=eps,
+        dropzero=dropzero, rmax=rmax) do x
         pdf(dist, x)
     end
 end
@@ -741,14 +782,15 @@ state_mix, reward_mix = mexpcmix(t -> 0.5*exp(-0.5*t), Q, x; bounds=(0, 30))
 
 @inbounds function mexpcmix(f::Any, Q::AbstractMatrix{Tv}, x::ArrayT;
     bounds=(Tv(0.0), Tv(Inf)), transpose::Symbol=:N,
-    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
+    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), dropzero::Tv=Base.eps(Tv),
+    rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
     m, n = size(Q)
     @assert m == n
-    de = deint(f, bounds[1], bounds[2])
+    de = deint(f, bounds[1], bounds[2]; dropzero=dropzero)
     dt, maxt = itime(de.x)
     P, qv = unif(Q, ufact)
     right = rightbound(qv*maxt, eps) + 1
-    @assert right <= rmax "Time interval is too large. rmax should be changed: right = $right (rmax: $rmax)."
+    _checkmixrmax("mexpcmix", right, rmax, maxt, qv)
     prob = Vector{Tv}(undef, right+1)
     cprob = Vector{Tv}(undef, right+1)
 
@@ -783,8 +825,10 @@ end
 
 function mexpc(Q::AbstractMatrix{Tv}, x::ArrayT, dist::UnivariateDistribution;
     bounds = (minimum(dist), maximum(dist)), transpose::Symbol=:N,
-    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
-    mexpcmix(Q, x, bounds=bounds, transpose=transpose, ufact=ufact, eps=eps, rmax=rmax) do x
+    ufact::Tv=Tv(1.01), eps::Tv=Tv(1.0e-8), dropzero::Tv=Base.eps(Tv),
+    rmax=500) where {Tv,ArrayT<:AbstractArray{Tv}}
+    mexpcmix(Q, x, bounds=bounds, transpose=transpose, ufact=ufact, eps=eps,
+        dropzero=dropzero, rmax=rmax) do x
         pdf(dist, x)
     end
 end

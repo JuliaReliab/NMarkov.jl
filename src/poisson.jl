@@ -262,6 +262,14 @@ function rightbound(::Type{Ti}, lambda::Tv, q::Tv = Tv(1.0e-8))::Ti where {Tv, T
         right
     else
         z = cquantile(Normal(), q)
-        right = floor(Ti, (z + sqrt(4 * lambda - 1))^2 / 4 + 1)
+        r = (z + sqrt(4 * lambda - 1))^2 / 4 + 1
+        # Check before flooring: `floor(Ti, r)` throws an InexactError for a
+        # non-finite or out-of-range r, which tells the caller nothing about why.
+        # lambda that large means the requested time interval cannot be handled
+        # by uniformization at all, so say so.
+        isfinite(r) && r <= typemax(Ti) || throw(ArgumentError(
+            "the Poisson mean $lambda is too large for uniformization: the " *
+            "truncation point would be about $r terms, which does not fit in $Ti"))
+        right = floor(Ti, r)
     end
 end
