@@ -14,12 +14,16 @@ that registry once, then install as usual:
 
 ```julia
 using Pkg
+Pkg.Registry.add("General")   # harmless if you already have it; see below
 Pkg.Registry.add(RegistrySpec(url="https://github.com/JuliaReliab/Registry.git"))
 Pkg.add("NMarkov")
 ```
 
 The registry also provides `DEQuadrature`, so nothing else needs installing by
-hand. The other dependency, `ZeroOrigin`, is in General.
+hand. The other dependency, `ZeroOrigin`, comes from General — which is why the
+first line is there: adding a registry by URL into a *fresh* depot skips Julia's
+usual automatic install of General, and the dependency resolution then fails.
+Adding it explicitly is a no-op on an existing installation.
 
 ## Quick Start
 
