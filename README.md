@@ -220,7 +220,7 @@ piv2, converged, iter, error = stgs(spQ)
 piv3, converged, iter, error = stgs(csc)
 ```
 
-The function `gth` can be applied to dense matrices only and uses the GTH algorithm. The function `stgs` can be applied to sparse matrices (both `SparseMatrixCSC` and custom `SparseCSC` formats) and uses the Gauss-Seidel iteration method. Note that `stgs` returns a tuple containing the solution vector and convergence information.
+The function `gth` can be applied to dense matrices only and uses the GTH algorithm. The function `stgs` can be applied to sparse matrices (both `SparseMatrixCSC` and custom `SparseCSC` formats) and uses the Gauss-Seidel iteration method. Note that `stgs` returns a tuple containing the solution vector and convergence information. Convergence is judged by the scaled residual `‖x Q‖₁ / max|Q[i,i]|` (`criterion = :residual`, the default); `criterion = :change` selects the older test on the change between iterates, which can report convergence for an iterate that is still cycling or stagnating.
 
 ### Sensitivity analysis of stationary vector
 

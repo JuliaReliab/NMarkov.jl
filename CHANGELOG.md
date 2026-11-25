@@ -1,3 +1,33 @@
+# Unreleased
+
+`stgs` and `stpower` could report convergence for an iterate that was nowhere
+near the stationary vector.
+
+The stopping test compared two iterates `steps` sweeps apart. Gauss-Seidel on a
+4-state tandem queue settles into a 2-cycle instead of converging; with the
+default `steps = 20` (even) the two compared iterates are the same point of the
+cycle, so `stgs` returned `conv = true` with an L1 error of 0.2. The same
+aliasing hid L1 errors of 0.02–0.1 on tandem queues up to `n = 961`. More
+generally, a slowly moving iterate passes a change test long before it is close.
+
+- **The stopping test is now the residual** of the normalised iterate:
+  `‖x Q‖₁ / max_i |Q[i,i]|` for `stgs` (that is `‖x P - x‖₁` for the
+  uniformized chain) and `‖x P - x‖₁` for `stpower`. The returned `rerror` is
+  that residual. A small residual is necessary for a small error
+  (`‖x - π‖₁ ≤ ‖A^#‖₁ ‖x Q‖₁`, `A^#` the group inverse); the residual cannot be
+  fooled by a cycle or by stagnation. It costs one extra pass over `Q` per
+  check, `1/steps` of the sweep cost.
+- **`criterion = :change`** restores the previous test.
+- **Behaviour change**: the same `rtol` now means a different quantity. On a
+  slowly mixing chain the residual test can stop with a larger error than the
+  old test at the same `rtol` (birth-death chain, `n = 200`, `rtol = 1e-10`:
+  error 6e-7 vs 2e-8), because `‖A^#‖₁` is large there; tighten `rtol`. Chains on
+  which Gauss-Seidel does not converge now return `conv = false` with a warning
+  instead of a wrong answer.
+
+Gauss-Seidel itself is unchanged: the tandem queue above still does not
+converge, it is now reported as such. `qstgs`/`qstpower` keep the change test.
+
 # NMarkov 0.5.2
 
 `mexpmix`/`mexpcmix` (and `mexp`/`mexpc` with a `Distribution`) could demand an
