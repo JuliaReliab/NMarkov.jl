@@ -271,13 +271,18 @@ Supports both `SparseMatrixCSC` and `SparseCSC` matrix types.
 - `x0::Vector`: Initial guess vector (default: `stguess(Q)`)
 - `maxiter::Int`: Maximum number of iterations (default: 5000)
 - `steps::Int`: Check convergence every n steps (default: 20)
-- `rtol::Float`: Relative error tolerance (default: 1.0e-6)
+- `rtol::Float`: Tolerance for the stopping test (default: 1.0e-6)
+- `criterion::Symbol`: Stopping test (default: `:residual`)
+  - `:residual`: scaled residual `‖x Q‖₁ / max_i |Q[i,i]|` of the normalised
+    iterate, i.e. `‖x P - x‖₁` for the uniformized chain `P = I + Q/max|q_ii|`
+  - `:change`: the previous default, `max|x - x_prev| / max(x)` between two checks
+    `steps` sweeps apart
 
 ### Returns
 - `x::Vector`: Stationary probability vector
 - `conv::Bool`: Whether the algorithm converged
 - `iter::Int`: Number of iterations performed
-- `rerror::Float`: Final relative error
+- `rerror::Float`: Final value of the stopping test (scaled residual by default)
 
 ### Algorithm
 - Gauss-Seidel successive iteration
@@ -293,10 +298,45 @@ pi, conv, iter, err = stgs(Q, maxiter=5000)
 ### Notes
 - Convergence speed depends on matrix conditioning
 - Use `steps` parameter to balance frequency of convergence checks
+- Why the residual is the default: Gauss-Seidel can settle into a 2-cycle
+  instead of converging (seen on tandem queues). With an even `steps` the two
+  iterates compared by `:change` are the same point of the cycle, so the change
+  vanishes while the iterate is still far from `π` (a 2D tandem queue with
+  `n = 10⁴` reached `2e-12` under `:change` with an L1 error of `2e-4`). The residual cannot be fooled
+  that way: `‖x - π‖₁ ≤ ‖A^#‖₁ ‖x Q‖₁`, where `A^#` is the group inverse, so a
+  small residual is necessary for a small error and the remaining factor is a
+  property of the chain, not of the iteration. The residual costs one extra
+  pass over `Q` per check, i.e. `1/steps` of the sweep cost.
 """
 function stgs(Q::SparseMatrixCSC{Tv,Ti}; x0::Vector{Tv}=stguess(Q,Tv),
-        maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
-    stgs(SparseCSC(Q), x0=x0, maxiter=maxiter, steps=steps, rtol=rtol)
+        maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6),
+        criterion::Symbol=:residual) where {Tv,Ti}
+    stgs(SparseCSC(Q), x0=x0, maxiter=maxiter, steps=steps, rtol=rtol,
+         criterion=criterion)
+end
+
+function _checkcriterion(name::String, criterion::Symbol)
+    criterion in (:residual, :change) || throw(ArgumentError(
+        "$name: unknown criterion :$criterion (use :residual or :change)"))
+    nothing
+end
+
+"""
+    _stresidual(x, Q::SparseCSC)
+
+`‖x Q‖₁` for a row vector `x`, i.e. `‖Qᵀx‖₁`; with CSC storage entry `j` of
+`x Q` is the dot product of `x` with column `j`.
+"""
+function _stresidual(x::Vector{Tv}, Q::SparseCSC{Tv,Ti})::Tv where {Tv,Ti}
+    r = zero(Tv)
+    @inbounds for j = 1:size(Q, 2)
+        s = zero(Tv)
+        for z = Q.colptr[j]:Q.colptr[j+1]-1
+            s += x[Q.rowind[z]] * Q.val[z]
+        end
+        r += abs(s)
+    end
+    r
 end
 
 """
@@ -334,10 +374,14 @@ function checkgsdiag(name::String, Q::MatT,
 end
 
 function stgs(Q::SparseCSC{Tv,Ti}; x0::Vector{Tv}=stguess(Q,Tv),
-        maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv,Ti}
+        maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6),
+        criterion::Symbol=:residual) where {Tv,Ti}
     m, n = size(Q)
     @assert m == n
     checkgsdiag("stgs", Q)
+    _checkcriterion("stgs", criterion)
+    # checkgsdiag guarantees a non-zero diagonal, so the scale is positive
+    qscale = maximum(abs, spdiag(Q))
     b = zeros(Tv, n)
     x = copy(x0)
     iter = 0
@@ -350,8 +394,11 @@ function stgs(Q::SparseCSC{Tv,Ti}; x0::Vector{Tv}=stguess(Q,Tv),
             gsstep!(x, Q, b)
             x ./= sum(x)
         end
-        # rerror = maximum(abs.((x - prevx) ./ x))
-        rerror = maximum(abs.(x - prevx)) / maximum(x)
+        rerror = if criterion === :residual
+            _stresidual(x, Q) / qscale
+        else
+            maximum(abs.(x - prevx)) / maximum(x)
+        end
         iter += steps
         if rerror < rtol
             conv = true
@@ -359,7 +406,7 @@ function stgs(Q::SparseCSC{Tv,Ti}; x0::Vector{Tv}=stguess(Q,Tv),
         end
         if iter >= maxiter
             @warn "stgs did not converge within $maxiter iterations "  *
-                  "(relative error $rerror, tolerance $rtol); the returned " *
+                  "($criterion $rerror, tolerance $rtol); the returned " *
                   "value is the last iterate"
             break
         end
@@ -377,13 +424,16 @@ Compute the stationary distribution of a DTMC using the power method.
 - `x0::Vector`: Initial guess vector (default: `stguess(P)`)
 - `maxiter::Int`: Maximum number of iterations (default: 5000)
 - `steps::Int`: Check convergence every n steps (default: 20)
-- `rtol::Float`: Relative error tolerance (default: 1.0e-6)
+- `rtol::Float`: Tolerance for the stopping test (default: 1.0e-6)
+- `criterion::Symbol`: Stopping test (default: `:residual`)
+  - `:residual`: `‖x P - x‖₁` of the normalised iterate
+  - `:change`: the previous default, `max|x - x_prev| / max(x)` between two checks
 
 ### Returns
 - `x::Vector`: Stationary probability vector
 - `conv::Bool`: Whether the algorithm converged
 - `iter::Int`: Number of iterations performed
-- `rerror::Float`: Final relative error
+- `rerror::Float`: Final value of the stopping test (residual by default)
 
 ### Algorithm
 - Power method (iteration with transpose of transition matrix)
@@ -401,9 +451,11 @@ pi, conv, iter, err = stpower(P, maxiter=5000)
 - DTMC equivalent of `stgs` for CTMCs
 """
 function stpower(P::AbstractMatrix{Tv}; x0::Vector{Tv}=stguess(P,Tv),
-    maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6)) where {Tv}
+    maxiter=5000, steps=20, rtol::Tv=Tv(1.0e-6),
+    criterion::Symbol=:residual) where {Tv}
     m, n = size(P)
     @assert m == n
+    _checkcriterion("stpower", criterion)
     Pdash = P'
     x = copy(x0)
     iter = 0
@@ -416,8 +468,11 @@ function stpower(P::AbstractMatrix{Tv}; x0::Vector{Tv}=stguess(P,Tv),
             x = Pdash * x
             x ./= sum(x)
         end
-        # rerror = maximum(abs.((x - prevx) ./ x))
-        rerror = maximum(abs.(x - prevx)) / maximum(x)
+        rerror = if criterion === :residual
+            sum(abs, Pdash * x - x)
+        else
+            maximum(abs.(x - prevx)) / maximum(x)
+        end
         iter += steps
         if rerror < rtol
             conv = true
@@ -425,7 +480,7 @@ function stpower(P::AbstractMatrix{Tv}; x0::Vector{Tv}=stguess(P,Tv),
         end
         if iter >= maxiter
             @warn "stpower did not converge within $maxiter iterations "  *
-                  "(relative error $rerror, tolerance $rtol); the returned " *
+                  "($criterion $rerror, tolerance $rtol); the returned " *
                   "value is the last iterate"
             break
         end

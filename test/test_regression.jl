@@ -216,6 +216,46 @@ end
     end
 end
 
+## stgs/stpower stop on the residual, not on the change between checks.
+##     Gauss-Seidel on this 4-state tandem queue (states (a,b), a,b ∈ {0,1},
+##     arrivals 0.9, service 1, blocking) does not converge: the iterate
+##     settles into a 2-cycle. With `steps = 20` (even) the iterates compared by
+##     the old change test are the same point of the cycle, so it reported
+##     convergence with an L1 error of 0.2. The residual test must say no.
+@testset "stgs stops on the residual" begin
+    Q = [
+        -0.9  0.0  0.9  0.0;
+         1.0 -1.9  0.0  0.9;
+         0.0  1.0 -1.0  0.0;
+         0.0  0.0  1.0 -1.0
+    ]
+    expected = gth(Q)
+    for A in (sparse(Q), SparseCSC(Q))
+        x, conv, = @test_logs (:warn, r"did not converge") stgs(A, rtol = 1.0e-10)
+        @test !conv
+        @test sum(abs, x - expected) > 0.1
+        # the old test is still available and still fooled (documents why the default moved)
+        xc, convc, = stgs(A, rtol = 1.0e-10, criterion = :change)
+        @test convc
+        @test sum(abs, xc - expected) > 0.1
+    end
+    # on a chain where Gauss-Seidel does converge, the residual test returns a
+    # residual below rtol and the right vector
+    Q3 = [-3.0 2.0 1.0; 1.0 -5.0 4.0; 2.0 1.0 -3.0]
+    x, conv, iter, rerror = stgs(sparse(Q3), rtol = 1.0e-12)
+    @test conv
+    @test rerror < 1.0e-12
+    @test isapprox(sum(abs, Q3' * x) / 5.0, rerror; atol = 1.0e-15)
+    @test x ≈ gth(Q3)
+    P, = unif(Q3)
+    x, conv, iter, rerror = stpower(P, rtol = 1.0e-12)
+    @test conv
+    @test isapprox(sum(abs, P' * x - x), rerror; atol = 1.0e-15)
+    @test x ≈ gth(Q3)
+    @test_throws ArgumentError stgs(sparse(Q3), criterion = :foo)
+    @test_throws ArgumentError stpower(P, criterion = :foo)
+end
+
 ## --- H/I/J: type flexibility must actually work, for both t and x, and for
 ##            element types other than Float64.
 @testset "mexp/mexpc type flexibility" begin
