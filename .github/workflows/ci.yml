@@ -21,10 +21,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # min: the lower bound declared in Project.toml (currently 1.10, which
-        # is also the LTS). 1: the latest stable release. Both track upstream on
-        # their own, so this list does not need editing when Julia moves on.
-        version: ["min", "1"]
+        # lts: the latest patch release of the LTS line (currently 1.10.x, the
+        # lower bound declared in Project.toml). 1: the latest stable release.
+        # Both track upstream on their own, so this list does not need editing
+        # when Julia moves on.
+        #
+        # Not "min": it resolves to 1.10.0 exactly, whose bundled libopenlibm.so
+        # is marked as needing an executable stack. The glibc on current
+        # ubuntu-latest refuses to load it ("cannot enable executable stack as
+        # shared object requires: Invalid argument"), so `julia --version` fails
+        # before any test runs. Later 1.10.x patch releases do not have the flag.
+        version: ["lts", "1"]
 
     steps:
       - name: Checkout
